@@ -63,9 +63,9 @@ MICROG_PACKAGES = {
     "GsfProxy": "com.google.android.gsf",
 }
 VANADIUM_APKS = {
-    "TrichromeChromeDualArch": ("app.vanadium.browser", "d29190503da3dfb94391829a61dfcab79466445806416d9e25a5cff5e730cb2b"),
-    "TrichromeWebViewDualArch": ("app.vanadium.webview", "382ce53368e437c09bce609447c6fc7194d1a374b7fb046ed17502eda5db6b24"),
-    "VanadiumConfig": ("app.vanadium.config", "e8943b5372cdb407995d8059a8f4bb940098aa72e432746daa4a84f84a10ed79"),
+    "TrichromeChromeDualArch": ("app.vanadium.browser", "702ab8bf065c3790df2a632523ce4af673f18ab633eadbda9bd4915bc367d2a9"),
+    "TrichromeWebViewDualArch": ("app.vanadium.webview", "f8ebbc61de940cd46e6a3c9e27ac7ac2f8b1a4fd93449bbd5b8182f8fcb9b0c8"),
+    "VanadiumConfig": ("app.vanadium.config", "859af201df06d0fa2e698496f1a14b959be173f14da81cf15036df7f6d8df42a"),
 }
 VANADIUM_SIGNER = "c6adb8b83c6d4c17d292afde56fd488a51d316ff8f2c11c5410223bff8a7dbb3"
 CORE_PARTITIONS = ("boot", "init_boot", "vendor_boot", "dtbo", "vbmeta", "vbmeta_system",
@@ -615,13 +615,24 @@ def check_qti_telephony_linkage(report, args, tf):
                extphone_extra_in_service=extra_impl)
 
 
-def retained_stock_provenance(source):
+def load_staged_gki(rom_dir):
+    gki_root = Path(rom_dir) / "kernel/prebuilts/houji-gki"
+    sums_path = gki_root / "SHA256SUMS"
+    prov_path = gki_root / "provenance.json"
+    if not (sums_path.is_file() and prov_path.is_file()):
+        return None
+    hashes = dict(line.split("  ", 1)[::-1] for line in sums_path.read_text().splitlines() if line.strip())
+    prov = json.loads(prov_path.read_text())
+    return {"root": gki_root, "hashes": hashes, "provenance": prov}
+
+
+def retained_stock_provenance(source, gki=None):
     kernel = source["stock_kernel"]["provenance"]
-    return {
+    info = {
         "stock_source_rom": source["baseline"],
-        "retained_components": ["boot kernel Image", "vendor_boot dtb", "dtbo prefix", "vendor_ramdisk modules",
-                                "vendor_dlkm modules", "system_dlkm modules", "vendor blobs"],
-        "kernel_release": kernel["kernel_release"],
+        "retained_components": ["vendor_boot dtb", "dtbo prefix", "vendor_ramdisk modules",
+                                "vendor_dlkm modules", "vendor blobs"],
+        "kernel_release": gki["provenance"]["gki_release"] if gki else kernel["kernel_release"],
         "stock_image_input_sha256": kernel["input_sha256"],
         "module_counts": kernel["module_counts"],
         "dtb_count": kernel["dtb_count"],
@@ -629,6 +640,16 @@ def retained_stock_provenance(source):
         "firmware_partitions_shipped": [],
         "release_gating_on_stock_region_or_oem_postcondition": False,
     }
+    if gki:
+        info["gki_upgrade"] = {
+            "gki_release": gki["provenance"]["gki_release"],
+            "gki_tag": gki["provenance"]["gki_tag"],
+            "gki_build_id": gki["provenance"]["gki_build_id"],
+            "image_sha256": gki["hashes"]["Image"],
+        }
+    else:
+        info["retained_components"] = ["boot kernel Image", *info["retained_components"], "system_dlkm modules"]
+    return info
 
 
 def retained_source_inputs(source):
@@ -784,13 +805,82 @@ def decompress_ramdisk(tools, fragment, out):
         raise ValueError(f"Unknown ramdisk compression {magic.hex()} in {fragment.name}")
 
 
-def check_kernel_links(report, args, tools, work, extracted, tf, source):
+def _parse_ko_elf(data):
+    e_shoff = struct.unpack_from("<Q", data, 40)[0]
+    e_shentsize, e_shnum, e_shstrndx = struct.unpack_from("<HHH", data, 58)
+    shstr_off, shstr_sz = struct.unpack_from("<QQ", data, e_shoff + e_shstrndx * e_shentsize + 24)
+    shstr = data[shstr_off:shstr_off + shstr_sz]
+    by_idx, by_name = [], {}
+    for i in range(e_shnum):
+        off = e_shoff + i * e_shentsize
+        sh_name = struct.unpack_from("<I", data, off)[0]
+        sh_offset, sh_size = struct.unpack_from("<QQ", data, off + 24)
+        sh_entsize = struct.unpack_from("<Q", data, off + 56)[0]
+        name = shstr[sh_name:shstr.index(b"\x00", sh_name)].decode("utf-8", "ignore")
+        rec = (name, sh_offset, sh_size, sh_entsize)
+        by_idx.append(rec)
+        by_name[name] = rec
+    return by_idx, by_name
+
+
+def _verify_gki_kmi_crcs(symvers_path, ko_paths):
+    vmlinux_crcs = {}
+    for line in symvers_path.read_text().splitlines():
+        parts = line.split("\t")
+        if len(parts) >= 2:
+            vmlinux_crcs[parts[1]] = int(parts[0], 16)
+    mod_crcs = {}
+    req_map = []
+    for p in ko_paths:
+        data = p.read_bytes()
+        by_idx, by_name = _parse_ko_elf(data)
+        if ".symtab" in by_name and ".strtab" in by_name:
+            _, sym_off, sym_sz, entsz = by_name[".symtab"]
+            _, str_off, str_sz, _ = by_name[".strtab"]
+            strtab = data[str_off:str_off + str_sz]
+            for pos in range(sym_off, sym_off + sym_sz, entsz):
+                st_name, _, _, st_shndx, st_value, _ = struct.unpack_from("<IBBHQQ", data, pos)
+                name = strtab[st_name:strtab.index(b"\x00", st_name)].decode("utf-8", "ignore")
+                if name.startswith("__crc_"):
+                    if st_shndx == 0xFFF1:
+                        mod_crcs.setdefault(name[6:], st_value & 0xFFFFFFFF)
+                    elif st_shndx < len(by_idx):
+                        mod_crcs.setdefault(name[6:], struct.unpack_from("<I", data, by_idx[st_shndx][1] + st_value)[0])
+        if "__versions" in by_name:
+            _, off, sz, _ = by_name["__versions"]
+            for pos in range(off, off + sz, 64):
+                crc = struct.unpack_from("<Q", data, pos)[0] & 0xFFFFFFFF
+                sym = data[pos + 8:pos + 64].split(b"\x00", 1)[0].decode("utf-8", "ignore")
+                if sym:
+                    req_map.append((p.name, sym, crc))
+    mismatches, missing = [], []
+    for mod, sym, crc in req_map:
+        if sym in vmlinux_crcs:
+            if vmlinux_crcs[sym] != crc:
+                mismatches.append(f"{mod}:{sym}")
+        elif sym in mod_crcs:
+            if mod_crcs[sym] != crc:
+                mismatches.append(f"{mod}:{sym}")
+        else:
+            missing.append(f"{mod}:{sym}")
+    return len(req_map), mismatches, missing
+
+
+def check_kernel_links(report, args, tools, work, extracted, tf, source, gki=None):
     stock = source["stock_kernel"]["images"]
     boot_dir = work / "unpack_boot"
     unpack(tools, extracted["boot"], boot_dir)
     kernel = boot_dir / "kernel"
-    report.add("boot_kernel_equals_retained_stock_image", sha256_file(kernel) == stock["Image"]["sha256"]
-               and kernel.stat().st_size == stock["Image"]["bytes"], stock_sha256=stock["Image"]["sha256"])
+    if gki:
+        expected_img = gki["root"] / "Image"
+        expected_sha = gki["hashes"]["Image"]
+        expected_size = expected_img.stat().st_size
+    else:
+        expected_sha = stock["Image"]["sha256"]
+        expected_size = stock["Image"]["bytes"]
+    report.add("boot_kernel_equals_retained_stock_image", sha256_file(kernel) == expected_sha
+               and kernel.stat().st_size == expected_size, expected_sha256=expected_sha,
+               kernel_release=gki["provenance"]["gki_release"] if gki else source["stock_kernel"]["provenance"]["kernel_release"])
     dtbo = stock["dtbo.img"]
     report.add("dtbo_prefix_equals_retained_stock_dtbo",
                sha256_file(extracted["dtbo"], dtbo["bytes"]) == dtbo["sha256"], stock_sha256=dtbo["sha256"])
@@ -806,7 +896,11 @@ def check_kernel_links(report, args, tools, work, extracted, tf, source):
         ramdisk_files.update(read_cpio(cpio))
         cpio.unlink()
     for tree, prefix in (("vendor_ramdisk", ""), ("vendor_dlkm", "VENDOR_DLKM/"), ("system_dlkm", "SYSTEM_DLKM/")):
-        records = {k[len(tree) + 1:]: v for k, v in stock.items() if k.startswith(tree + "/")}
+        if tree == "system_dlkm" and gki:
+            records = {k[len(tree) + 1:]: {"sha256": v} for k, v in gki["hashes"].items()
+                       if k.startswith("system_dlkm/") and k.endswith(".ko")}
+        else:
+            records = {k[len(tree) + 1:]: v for k, v in stock.items() if k.startswith(tree + "/")}
         bad = []
         for relative, record in records.items():
             if tree == "vendor_ramdisk":
@@ -818,6 +912,16 @@ def check_kernel_links(report, args, tools, work, extracted, tf, source):
                 bad.append(relative)
         report.add(f"{tree}_modules_equal_retained_stock", not bad, expected=len(records),
                    mismatched=len(bad), examples=bad[:10])
+    if gki:
+        symvers = gki["root"] / "vmlinux.symvers"
+        stock_root = Path(args.rom_dir) / "vendor/xiaomi/houji/kernel/stock"
+        ko_paths = (sorted((gki["root"] / "system_dlkm").rglob("*.ko"))
+                    + sorted((stock_root / "vendor_ramdisk").rglob("*.ko"))
+                    + sorted((stock_root / "vendor_dlkm").rglob("*.ko")))
+        refs, mismatches, missing = _verify_gki_kmi_crcs(symvers, ko_paths)
+        report.add("gki_kmi_symbol_crc_parity", not mismatches and not missing and refs > 0,
+                   total_symbol_refs=refs, modules=len(ko_paths),
+                   mismatches=mismatches[:10], missing=missing[:10])
 
 
 def check_recovery_binary(report, tools, work, tf, extracted, manifest):
@@ -1248,6 +1352,7 @@ def main():
     work.mkdir(parents=True, exist_ok=True)
     tools = Tools(args.host_bin)
     source = json.loads(Path(args.source_json).read_text())
+    gki = load_staged_gki(args.rom_dir)
     report = Report()
 
     manifest = report.guard("repo_manifest", read_manifest, args, report)
@@ -1264,7 +1369,7 @@ def main():
             report.guard("system_init", check_init_aliases, report, tools, work, tf, extracted)
             report.guard("images_vs_payload", check_images_vs_payload, report, tf, tools, extracted, work)
             report.guard("avb", check_avb, report, args, tools, work, extracted, tf)
-            report.guard("kernel_links", check_kernel_links, report, args, tools, work, extracted, tf, source)
+            report.guard("kernel_links", check_kernel_links, report, args, tools, work, extracted, tf, source, gki)
             report.guard("bootstrap_images", check_bootstrap_images, report, tools, tf, extracted)
         report.guard("vintf", check_vintf, report, args, tools, tf)
         report.guard("sepolicy", check_sepolicy, report, tools, tf)
@@ -1292,7 +1397,7 @@ def main():
         "evidence": summary,
         "verified_source_inputs": retained_source_inputs(source),
         "kernel_uapi_sources": uapi,
-        "retained_stock_provenance": retained_stock_provenance(source),
+        "retained_stock_provenance": retained_stock_provenance(source, gki),
         "physical_device_tests_not_run": list(NOT_RUN),
     }
     Path(args.output).write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")

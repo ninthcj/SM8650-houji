@@ -1,7 +1,7 @@
 From f7f2369e30302093ae5552892a33194fef3c6f50 Mon Sep 17 00:00:00 2001
 From: ninthcj <327845320+ninthcj@users.noreply.github.com>
 Date: Mon, 23 Nov 2026 17:41:57 -0400
-Subject: [PATCH 6/7] Document houji release app exclusions
+Subject: [PATCH 6/8] Document houji release app exclusions
 
 - Distinguish the carrier entitlement app from the required Qualcomm IMS implementation.
 ---
@@ -23,3 +23,6 @@ index 1cf1c0e..d20f5de 100644
  
  `vendor/xiaomi/houji/radio/*.img` 使用 Git LFS，其他 vendor 文件正常提交。
  需要安装 Git LFS 并执行 `git lfs install`，推送时确保 LFS 对象一并上传。
+-- 
+2.56.1
+

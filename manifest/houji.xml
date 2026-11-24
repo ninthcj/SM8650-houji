@@ -20,4 +20,5 @@
   <extend-project name="build_soong" path="build/soong" revision="dd61360d8c57a83c49a6b8ca62fed882254aa5de" upstream="refs/heads/seventeen" />
   <extend-project name="bootable_recovery" path="bootable/recovery" revision="2bc75fbed39574986be294b510ee07ed269b8176" upstream="refs/heads/seventeen" />
   <extend-project name="android_vendor_codeaurora_telephony" path="vendor/codeaurora/telephony" revision="efe21bde722a3585e357bee0e09e5da54f229589" upstream="refs/heads/lineage-23.2" />
+  <extend-project name="GrapheneOS/platform_external_vanadium" path="external/vanadium" revision="c0c4d1857b76a43ebfc08f896b303cecb4402731" upstream="refs/heads/17" />
 </manifest>
