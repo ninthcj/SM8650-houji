@@ -8,21 +8,21 @@ Reproducible build configuration, adaptation patches, release auditor, and rootl
 
 - **Region-Agnostic Bring-Your-Own-Firmware (BYOF)**: Ships strictly the **14 OS partitions** (`boot`, `dtbo`, `init_boot`, `odm`, `product`, `recovery`, `system`, `system_dlkm`, `system_ext`, `vbmeta`, `vbmeta_system`, `vendor`, `vendor_boot`, `vendor_dlkm`) and **zero radio/firmware partitions**. Works across CN (`23127PN0CC`) and Global/EEA/IN (`23127PN0CG`, `houji` / `houjiin`) on a **HyperOS 3 (`OS3.0.x`, Android 16 vendor)** firmware baseline.
 - **FOSS-First & Native microG**: Uses YAAP's native Vanilla `vendor/microg` integration (preserving upstream microG APK signatures for restricted signature spoofing and pre-extracting `GmsCore` ARM64 JNI libraries), pinned upstream GrapheneOS `Vanadium 158.0.8127.92.0` browser/WebView, `Aperture` multi-lens camera, `Seedvault` backup, and `OpenEUICC` + `XiaomiEsimSwitcher` (auto-enabled on Global SKU, masked on CN SKU). Excludes `vendor/google/gms`, `vendor/google/pixel`, and bundled apps embedding proprietary Play/Firebase SDKs (`YASR`, `TalkBack`, `ImsServiceEntitlement`).
-- **Updated Official Google GKI 2.0 LTS Kernel**: Stages Google's official signed `android14-6.1-2026-09_r10` (`6.1.176-android14-11-g6e799b788f49-ab16965211`) `Image` and matched 60 signed `system_dlkm` modules via `fetch-gki-kernel.py`, retaining stock `OS3.0.307.0` DTBs, DTBO, and 654 vendor `.ko` modules with **100% ELF KMI symbol CRC verification** (`39,139 / 39,139` refs, `0` mismatches, `0` missing).
+- **Updated Upstream `android14-6.1` GKI 2.0 LTS Kernel (`6.1.182`)**: Built reproducibly from pinned Google `kernel/common` `android14-6.1` (`7bae370c0f35c4188943c4d8a4d5a357d157767f`, `6.1.182`) with official Android `clang-r487747c` via `build-gki-kernel.py`, applying a single surgical revert (`patches/gki_common/0001-Revert-drm-Add-valid-clones-check.patch`) of upstream Linux `ffb55ddf2685` (`drm: Add valid clones check`, `6.1.142+`) so Qualcomm's prebuilt `6.1.68` `msm_drm.ko` Concurrent Writeback (CWB) under-display RGB ambient light sensor runs cleanly without `-EINVAL` `NullCommit` screen flicker. Retains stock `OS3.0.307.0` DTBs, DTBO, and 654 vendor `.ko` modules with **100% ELF KMI symbol CRC verification** (`39,140 / 39,140` refs, `0` mismatches, `0` missing).
 - **Recovery & First-Flash Tooling**:
   - `hardware/qcom-caf/bootctrl` (`android.hardware.boot-service.qti` + `.recovery`) enabled in both Android and Recovery, `vendor/codeaurora/telephony` aligned to `lineage-23.2` (`LA.QSSI.16.0`) to match HyperOS 3 IMS/telephony blobs, and `/sys/class/qcom-battery` + UCSI Type-C SELinux labels wired for Xiaomi 90W private fast-charge authentication (`batterysecret`).
   - Interactive physical confirmation menu (`No / Yes`, default `No`) on unlocked devices in YAAP Recovery when sideloading user-supplied unsigned firmware archives (`--firmware`).
   - Rootless `flash.sh` installer including `super_empty.img` (`fastboot wipe-super`) to cleanly reset Xiaomi HyperOS `mi_ext` / unmerged `*-cow` entries in `super` prior to first-time Recovery sideloading.
-  - 112-check offline release verifier (`verify-release.py`) and atomic publisher (`package-release.py`), including static DEX bytecode linkage verification for QTI IMS/ExtPhone and full ELF KMI symbol CRC auditing.
+  - 113-check offline release verifier (`verify-release.py`) and atomic publisher (`package-release.py`), including static DEX bytecode linkage verification for QTI IMS/ExtPhone, `gki_drm_clone_compat` regression guard, and full ELF KMI symbol CRC auditing.
 
 ## Repository Layout
 
-- `manifest/houji.xml` — `.repo/local_manifests/houji.xml` pinning device, vendor, hardware, kernel UAPI, QTI telephony, and YAAP project revisions.
-- `patches/` & `apply-patches.sh` — Clean `git format-patch` series applied onto branch `yaap-17` across the 8 adapted repositories.
-- `fetch-gki-kernel.py` — Downloads and KMI-verifies the pinned official Google `android14-6.1-2026-09_r10` (`6.1.176`, `ab16965211`) GKI `Image` + `system_dlkm` modules into `yaap/kernel/prebuilts/houji-gki/`.
+- `manifest/houji.xml` — `.repo/local_manifests/houji.xml` pinning device, vendor, hardware, kernel UAPI, QTI telephony, Vanadium, and YAAP project revisions.
+- `patches/` & `apply-patches.sh` — Clean `git format-patch` series applied onto branch `yaap-17` across the 8 adapted ROM repositories, plus `patches/gki_common/0001-Revert-drm-Add-valid-clones-check.patch` for `android14-6.1`.
+- `build-gki-kernel.py` — Fetches pinned Google `android14-6.1` (`6.1.182`, `7bae370c0f35`) + official `clang-r487747c`, applies the single DRM CWB clone-check revert, builds `Image` + 60 signed `system_dlkm` modules, verifies all 39,140 KMI CRCs, and stages into `yaap/kernel/prebuilts/houji-gki/`.
 - `Containerfile` — Rootless Podman Ubuntu 24.04 AOSP build environment.
 - `verify-preflight.py` — Pre-patch source, Git LFS hydration, kernel module ELF, and upstream APK signature gate.
-- `verify-release.py` & `package-release.py` — Post-build 112-check release auditor (OTA/AVB/APEX signatures, VINTF, SELinux, JNI extraction, QTI IMS/ExtPhone DEX linkage, 39,139-symbol KMI CRC parity, GMS-free scan) and `dist/` bundler.
+- `verify-release.py` & `package-release.py` — Post-build 113-check release auditor (OTA/AVB/APEX signatures, VINTF, SELinux, JNI extraction, QTI IMS/ExtPhone DEX linkage, 39,140-symbol KMI CRC parity, DRM CWB compatibility guard, GMS-free scan) and `dist/` bundler.
 - `flash.sh` — Interactive rootless installer (`verify`, `flash`, `sideload [--firmware ZIP]`, `status`).
 
 ## Reproducing the Build
@@ -52,8 +52,8 @@ podman run --rm -it --userns=keep-id --pids-limit=-1 --ulimit nofile=65536:65536
       -c "git lfs install --local --skip-repo && git lfs pull && git lfs checkout"
     python3 -B /workspace/verify-preflight.py /workspace/yaap > /workspace/preflight/SYNCED_SOURCE_VERIFICATION.json
     /workspace/apply-patches.sh /workspace/yaap
-    python3 -B /workspace/fetch-gki-kernel.py /workspace/yaap
   '
+python3 -B ./build-gki-kernel.py ./yaap
 ```
 
 ### 3. Build signed `user` OTA (`release-keys`)

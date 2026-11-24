@@ -641,10 +641,10 @@ def retained_stock_provenance(source, gki=None):
         "release_gating_on_stock_region_or_oem_postcondition": False,
     }
     if gki:
+        prov = gki["provenance"]
         info["gki_upgrade"] = {
-            "gki_release": gki["provenance"]["gki_release"],
-            "gki_tag": gki["provenance"]["gki_tag"],
-            "gki_build_id": gki["provenance"]["gki_build_id"],
+            **{k: prov[k] for k in ("gki_release", "gki_branch", "gki_upstream_commit",
+                                    "gki_build_mode", "gki_tag", "gki_build_id", "patches") if k in prov},
             "image_sha256": gki["hashes"]["Image"],
         }
     else:
@@ -922,6 +922,9 @@ def check_kernel_links(report, args, tools, work, extracted, tf, source, gki=Non
         report.add("gki_kmi_symbol_crc_parity", not mismatches and not missing and refs > 0,
                    total_symbol_refs=refs, modules=len(ko_paths),
                    mismatches=mismatches[:10], missing=missing[:10])
+        kernel_bytes = kernel.read_bytes()
+        report.add("gki_drm_clone_compat", b"failed valid clone check" not in kernel_bytes,
+                   note="Upstream Linux ffb55ddf2685 breaks Qualcomm 6.1.68 msm_drm.ko CWB clone mode on houji")
 
 
 def check_recovery_binary(report, tools, work, tf, extracted, manifest):

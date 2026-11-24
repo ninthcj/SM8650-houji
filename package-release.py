@@ -38,6 +38,7 @@ REQUIRED_CHECKS = (
     "microg_aperture_esim_apk_jni_and_config_bytes_in_payload_filesystems",
     "boot_kernel_equals_retained_stock_image",
     "gki_kmi_symbol_crc_parity",
+    "gki_drm_clone_compat",
     "payload_recovery_contains_qti_boot_control_hal",
     "vendor_contains_qti_boot_control_hal",
     "xiaomi_fastcharge_sepolicy_labels_and_rules",
