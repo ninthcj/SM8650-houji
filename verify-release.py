@@ -150,6 +150,7 @@ RECOVERY_TF_BINARY_PATH = "RECOVERY/RAMDISK/" + RECOVERY_BINARY_PATH
 VENDOR_BOOTCTRL_TF_PATH = "VENDOR/bin/hw/android.hardware.boot-service.qti"
 VENDOR_BOOTCTRL_RC_TF_PATH = "VENDOR/etc/init/android.hardware.boot-service.qti.rc"
 VENDOR_BOOTCTRL_VINTF_TF_PATH = "VENDOR/etc/vintf/manifest/boot-service.qti.xml"
+VENDOR_SEPOLICY_CIL_TF_PATH = "VENDOR/etc/selinux/vendor_sepolicy.cil"
 # Literals of install.cpp ConfirmUntrustedInstall (bootable/recovery): the prompt a user sees
 # for firmware ZIPs that are not signed by the release key.
 RECOVERY_MENU_HEADERS = (b"Signature verification failed", b"Install untrusted package?")
@@ -157,6 +158,7 @@ RECOVERY_PROJECT = "bootable/recovery"
 EXTRA_EXTRACTED = {
     OTA_CERTS_APK_PATH, INIT_TARGET_FILES_PATH, EUICC_JNI, RECOVERY_TF_BINARY_PATH,
     VENDOR_BOOTCTRL_TF_PATH, VENDOR_BOOTCTRL_RC_TF_PATH, VENDOR_BOOTCTRL_VINTF_TF_PATH,
+    VENDOR_SEPOLICY_CIL_TF_PATH,
 }
 LOCAL_PORT_PROJECTS = {"device/xiaomi/houji", "device/xiaomi/sm8650-common", "hardware/xiaomi",
                        "vendor/yaap", "vendor/microg", "vendor/xiaomi/houji"}
@@ -720,6 +722,16 @@ def check_sepolicy(report, tools, tf):
     domains = run([tools("sepolicy-analyze"), policy, "permissive"], env=tools.env()).splitlines()
     report.add("selinux_precompiled_policy_has_no_permissive_domains", magic == b"\x8c\xff\x7c\xf9" and not domains,
                permissive_domains=domains, sha256=sha256_file(policy))
+    cil_path = tf.path(VENDOR_SEPOLICY_CIL_TF_PATH)
+    cil = cil_path.read_text() if cil_path.is_file() else ""
+    required_cil = (
+        '(genfscon sysfs "/class/qcom-battery" (u object_r vendor_sysfs_battery_supply',
+        '(genfscon sysfs "/devices/platform/soc/soc:qcom,pmic_glink/soc:qcom,pmic_glink:qcom,ucsi/typec" (u object_r sysfs_typec',
+        "(allow batterysecret vendor_sysfs_battery_supply (file (",
+        "(allow batterysecret sysfs_typec_",
+    )
+    missing_cil = [snippet for snippet in required_cil if snippet not in cil]
+    report.add("xiaomi_fastcharge_sepolicy_labels_and_rules", not missing_cil, missing=missing_cil)
 
 
 def read_cpio(path, capture=()):

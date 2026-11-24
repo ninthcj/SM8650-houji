@@ -10,10 +10,10 @@ Reproducible build configuration, adaptation patches, release auditor, and rootl
 - **FOSS-First & Native microG**: Uses YAAP's native Vanilla `vendor/microg` integration (preserving upstream microG APK signatures for restricted signature spoofing and pre-extracting `GmsCore` ARM64 JNI libraries), GrapheneOS `Vanadium` browser/WebView, `Aperture` multi-lens camera, `Seedvault` backup, and `OpenEUICC` + `XiaomiEsimSwitcher` (auto-enabled on Global SKU, masked on CN SKU). Excludes `vendor/google/gms`, `vendor/google/pixel`, and bundled apps embedding proprietary Play/Firebase SDKs (`YASR`, `TalkBack`, `ImsServiceEntitlement`).
 - **Stock Prebuilt Kernel Integrity**: Retains the unmodified stock GKI `6.1.138-android14-11-g0c3d559bcd85` `Image`, DTBs, DTBO, and 714 signed `.ko` modules, paired with exact upstream GKI UAPI headers (`android14-6.1-2025-06_r15`).
 - **Recovery & First-Flash Tooling**:
-  - `hardware/qcom-caf/bootctrl` (`android.hardware.boot-service.qti` + `.recovery`) enabled in both Android and Recovery, and `vendor/codeaurora/telephony` aligned to `lineage-23.2` (`LA.QSSI.16.0`) to match HyperOS 3 IMS/telephony blobs.
+  - `hardware/qcom-caf/bootctrl` (`android.hardware.boot-service.qti` + `.recovery`) enabled in both Android and Recovery, `vendor/codeaurora/telephony` aligned to `lineage-23.2` (`LA.QSSI.16.0`) to match HyperOS 3 IMS/telephony blobs, and `/sys/class/qcom-battery` + UCSI Type-C SELinux labels wired for Xiaomi 90W private fast-charge authentication (`batterysecret`).
   - Interactive physical confirmation menu (`No / Yes`, default `No`) on unlocked devices in YAAP Recovery when sideloading user-supplied unsigned firmware archives (`--firmware`).
   - Rootless `flash.sh` installer including `super_empty.img` (`fastboot wipe-super`) to cleanly reset Xiaomi HyperOS `mi_ext` / unmerged `*-cow` entries in `super` prior to first-time Recovery sideloading.
-  - 110-check offline release verifier (`verify-release.py`) and atomic publisher (`package-release.py`), including static DEX bytecode linkage verification for QTI IMS and ExtPhone.
+  - 111-check offline release verifier (`verify-release.py`) and atomic publisher (`package-release.py`), including static DEX bytecode linkage verification for QTI IMS and ExtPhone.
 
 ## Repository Layout
 
@@ -21,7 +21,7 @@ Reproducible build configuration, adaptation patches, release auditor, and rootl
 - `patches/` & `apply-patches.sh` — Clean `git format-patch` series applied onto branch `yaap-17` across the 8 adapted repositories.
 - `Containerfile` — Rootless Podman Ubuntu 24.04 AOSP build environment.
 - `verify-preflight.py` — Pre-patch source, Git LFS hydration, kernel module ELF, and upstream APK signature gate.
-- `verify-release.py` & `package-release.py` — Post-build 110-check release auditor (OTA/AVB/APEX signatures, VINTF, SELinux, JNI extraction, QTI IMS/ExtPhone DEX linkage, GMS-free scan) and `dist/` bundler.
+- `verify-release.py` & `package-release.py` — Post-build 111-check release auditor (OTA/AVB/APEX signatures, VINTF, SELinux, JNI extraction, QTI IMS/ExtPhone DEX linkage, GMS-free scan) and `dist/` bundler.
 - `flash.sh` — Interactive rootless installer (`verify`, `flash`, `sideload [--firmware ZIP]`, `status`).
 
 ## Reproducing the Build

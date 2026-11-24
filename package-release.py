@@ -39,6 +39,7 @@ REQUIRED_CHECKS = (
     "boot_kernel_equals_retained_stock_image",
     "payload_recovery_contains_qti_boot_control_hal",
     "vendor_contains_qti_boot_control_hal",
+    "xiaomi_fastcharge_sepolicy_labels_and_rules",
     "bootstrap_super_empty_header_and_geometry",
     "avb_vbmeta",
     "avb_vbmeta_system",

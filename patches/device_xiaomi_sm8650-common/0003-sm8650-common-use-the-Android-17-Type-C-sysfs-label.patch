@@ -1,7 +1,7 @@
 From d835bc2970126cf739a6078a4eb431bc9126d75a Mon Sep 17 00:00:00 2001
 From: ninthcj <327845320+ninthcj@users.noreply.github.com>
 Date: Mon, 23 Nov 2026 16:49:31 -0400
-Subject: [PATCH 3/5] sm8650-common: use the Android 17 Type-C sysfs label
+Subject: [PATCH 3/6] sm8650-common: use the Android 17 Type-C sysfs label
 
 Keep batterysecret directory search limited to the platform sysfs_typec type, matching the Android 17 device reference.
 ---
@@ -21,3 +21,6 @@ index 2ba9192..90f2123 100644
  allow batterysecret system_suspend_server:binder { call transfer };
  allow batterysecret system_suspend_server:fd *;
  allow batterysecret system_suspend_hwservice:hwservice_manager find;
+-- 
+2.56.1
+
