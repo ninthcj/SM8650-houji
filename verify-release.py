@@ -47,6 +47,7 @@ import shlex
 import shutil
 import ssl
 import stat
+import struct
 import subprocess
 import sys
 import tempfile
@@ -271,7 +272,7 @@ class TargetFiles:
                 if (top in EXTRACT_ROOTS or info.filename in EXTRA_EXTRACTED or
                         re.fullmatch(r"(?:VENDOR|ODM)/etc/selinux/precompiled_sepolicy", info.filename) or
                         (info.filename.startswith(MICROG_JNI_ROOT) and info.filename.endswith(".so")) or
-                        (top in APK_ROOTS and re.search(r"(\.apk|\.capex|\.apex|\.ko|\.prop|\.xml)$", info.filename))):
+                        (top in APK_ROOTS and re.search(r"(\.apk|\.jar|\.capex|\.apex|\.ko|\.prop|\.xml)$", info.filename))):
                     target = self.root / info.filename
                     target.parent.mkdir(parents=True, exist_ok=True)
                     with archive.open(info) as src, open(target, "wb") as dst:
@@ -468,6 +469,148 @@ def check_esim(report, tools, tf, rows):
     manifest = run([tools("aapt2"), "dump", "xmltree", tf.path(regional), "--file", "AndroidManifest.xml"]) if installed else ""
     report.add("houji_esim_overlay_uses_regional_model_guard",
                bool(re.search(r'requiredSystemPropertyValue[^\n]*"\+\(23127PN0CG\)"', manifest)), path=regional)
+
+
+QTI_TELEPHONY_JARS = (
+    "PRODUCT/framework/ims-ext-common.jar",
+    "SYSTEM_EXT/framework/extphonelib.jar",
+    "PRODUCT/framework/extphonelib-product.jar",
+    "SYSTEM_EXT/framework/qti-telephony-hidl-wrapper.jar",
+    "SYSTEM_EXT/framework/qti-telephony-utils.jar",
+)
+QTI_TELEPHONY_APKS = (
+    "SYSTEM_EXT/priv-app/ims/ims.apk",
+    "SYSTEM_EXT/priv-app/QtiTelephony/QtiTelephony.apk",
+)
+QTI_TELEPHONY_PREFIXES = ("Lorg/codeaurora/ims/", "Lcom/qti/extphone/")
+
+
+def parse_dex_archive(path):
+    def uleb128(buf, pos):
+        value, shift = 0, 0
+        while True:
+            byte = buf[pos]
+            pos += 1
+            value |= (byte & 0x7F) << shift
+            if not (byte & 0x80):
+                return value, pos
+            shift += 7
+
+    supers, ifaces, defined, referenced = {}, {}, set(), set()
+    with zipfile.ZipFile(path) as archive:
+        for member in archive.namelist():
+            if not (member.startswith("classes") and member.endswith(".dex")):
+                continue
+            dex = archive.read(member)
+            s_sz, s_off = struct.unpack_from("<II", dex, 56)
+            t_sz, t_off = struct.unpack_from("<II", dex, 64)
+            p_sz, p_off = struct.unpack_from("<II", dex, 72)
+            m_sz, m_off = struct.unpack_from("<II", dex, 88)
+            c_sz, c_off = struct.unpack_from("<II", dex, 96)
+            strings = []
+            for idx in range(s_sz):
+                off, = struct.unpack_from("<I", dex, s_off + idx * 4)
+                _, pos = uleb128(dex, off)
+                strings.append(dex[pos:dex.index(0, pos)].decode("utf-8", "replace"))
+            types = [strings[struct.unpack_from("<I", dex, t_off + idx * 4)[0]] for idx in range(t_sz)]
+            protos = []
+            for idx in range(p_sz):
+                _, ret_idx, params_off = struct.unpack_from("<III", dex, p_off + idx * 12)
+                params = ""
+                if params_off:
+                    count, = struct.unpack_from("<I", dex, params_off)
+                    params = "".join(types[struct.unpack_from("<H", dex, params_off + 4 + j * 2)[0]]
+                                     for j in range(count))
+                protos.append(f"({params}){types[ret_idx]}")
+            methods = [(types[c], strings[n], protos[p])
+                       for c, p, n in (struct.unpack_from("<HHI", dex, m_off + idx * 8) for idx in range(m_sz))]
+            referenced.update(methods)
+            for idx in range(c_sz):
+                c_idx, _, sup_idx, iface_off, _, _, data_off, _ = struct.unpack_from(
+                    "<IIIIIIII", dex, c_off + idx * 32)
+                cname = types[c_idx]
+                supers[cname] = types[sup_idx] if sup_idx != 0xFFFFFFFF else None
+                if iface_off:
+                    count, = struct.unpack_from("<I", dex, iface_off)
+                    ifaces[cname] = [types[struct.unpack_from("<H", dex, iface_off + 4 + j * 2)[0]]
+                                     for j in range(count)]
+                else:
+                    ifaces[cname] = []
+                if not data_off:
+                    continue
+                pos = data_off
+                sf_sz, pos = uleb128(dex, pos)
+                if_sz, pos = uleb128(dex, pos)
+                dm_sz, pos = uleb128(dex, pos)
+                vm_sz, pos = uleb128(dex, pos)
+                for _ in range(sf_sz + if_sz):
+                    _, pos = uleb128(dex, pos)
+                    _, pos = uleb128(dex, pos)
+                for count in (dm_sz, vm_sz):
+                    midx = 0
+                    for _ in range(count):
+                        diff, pos = uleb128(dex, pos)
+                        midx += diff
+                        _, pos = uleb128(dex, pos)
+                        _, pos = uleb128(dex, pos)
+                        defined.add((cname, methods[midx][1], methods[midx][2]))
+    return supers, ifaces, defined, referenced
+
+
+def check_qti_telephony_linkage(report, args, tf):
+    missing_files = [rel for rel in (*QTI_TELEPHONY_JARS, *QTI_TELEPHONY_APKS) if not tf.path(rel).is_file()]
+    if missing_files:
+        report.add("qti_ims_and_extphone_dex_linkage", False, missing_files=missing_files)
+        return
+    base_supers, base_ifaces, base_defs = {}, {}, set()
+    product_out = Path(args.product_out)
+    boot_jars = [
+        product_out / "apex/com.android.art/javalib/core-oj.jar",
+        product_out / "system/framework/framework.jar",
+        product_out / "system/framework/telephony-common.jar",
+        product_out / "system/framework/ims-common.jar",
+    ]
+    for jar in (*boot_jars, *(tf.path(rel) for rel in QTI_TELEPHONY_JARS)):
+        if jar.is_file():
+            s, i, d, _ = parse_dex_archive(jar)
+            base_supers.update(s)
+            base_ifaces.update(i)
+            base_defs |= d
+    unresolved = {}
+    extphone_iface = {(m, p) for c, m, p in base_defs if c == "Lcom/qti/extphone/IExtPhone;"}
+    extphone_impl = set()
+    for rel in QTI_TELEPHONY_APKS:
+        local_s, local_i, local_d, refs = parse_dex_archive(tf.path(rel))
+        if rel.endswith("QtiTelephony.apk"):
+            extphone_impl = {(m, p) for c, m, p in local_d
+                             if c == "Lcom/qti/phone/ExtTelephonyService$1;" and m != "<init>"}
+        bad = []
+        for cname, mname, mproto in sorted(refs):
+            if not cname.startswith(QTI_TELEPHONY_PREFIXES):
+                continue
+            seen, stack, ok = set(), [cname], False
+            while stack:
+                cur = stack.pop()
+                if not cur or cur in seen:
+                    continue
+                seen.add(cur)
+                if (cur, mname, mproto) in local_d or (cur, mname, mproto) in base_defs:
+                    ok = True
+                    break
+                sup = local_s.get(cur) or base_supers.get(cur)
+                stack.append(sup or "Ljava/lang/Object;")
+                stack.extend(local_i.get(cur, ()))
+                stack.extend(base_ifaces.get(cur, ()))
+            if not ok:
+                bad.append(f"{cname}->{mname}{mproto}")
+        if bad:
+            unresolved[rel] = bad
+    missing_impl = sorted(f"{m}{p}" for m, p in (extphone_iface - extphone_impl))
+    extra_impl = sorted(f"{m}{p}" for m, p in (extphone_impl - extphone_iface))
+    report.add("qti_ims_and_extphone_dex_linkage",
+               not unresolved and bool(extphone_iface) and not missing_impl and not extra_impl,
+               unresolved=unresolved, extphone_missing_in_service=missing_impl,
+               extphone_extra_in_service=extra_impl)
 
 
 def retained_stock_provenance(source):
@@ -1120,6 +1263,7 @@ def main():
         summary = report.guard("apks", check_apks, report, args, tools, tf, source) or {}
         if summary:
             report.guard("esim", check_esim, report, tools, tf, summary["apks"])
+        report.guard("qti_telephony_linkage", check_qti_telephony_linkage, report, args, tf)
         summary["apex"] = report.guard("apex_keys", check_apex_keys, report, args, tools, work, tf) or {}
         if extracted:
             report.guard("payload_apk_bytes", check_released_apk_bytes, report, tools, work, tf, extracted, summary)

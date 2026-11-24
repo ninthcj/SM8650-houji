@@ -34,6 +34,7 @@ REQUIRED_CHECKS = (
     "esim_telephony_euicc_feature_installed",
     "esim_no_google_euicc_prebuilt",
     "esim_framework_overlay_declares_euicc_capabilities_and_two_physical_slots",
+    "qti_ims_and_extphone_dex_linkage",
     "microg_aperture_esim_apk_jni_and_config_bytes_in_payload_filesystems",
     "boot_kernel_equals_retained_stock_image",
     "payload_recovery_contains_qti_boot_control_hal",
