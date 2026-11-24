@@ -1,0 +1,20 @@
+# Never track signing keys, ROM checkouts, build outputs, or device logs
+keys/
+*.pem
+*.pk8
+*.key
+*.jks
+*.keystore
+yaap/
+out/
+dist/
+dist.*/
+preflight/
+.ccache/
+.deja/
+*.img
+*.zip
+*.tgz
+*.log
+*.state
+__pycache__/
