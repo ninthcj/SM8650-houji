@@ -24,6 +24,15 @@ CLANG_URL = (
 )
 DEFAULT_PATCH = Path(__file__).resolve().parent / "patches/gki_common/0001-Revert-drm-Add-valid-clones-check.patch"
 DEFAULT_CONTAINER = "localhost/houji-aosp-builder:ubuntu24.04"
+# Unused system_dlkm modules on Xiaomi 14 (houji): MediaTek hypervisor, runtime header archive,
+# and unused socket families (AF_TIPC, AF_CAN, AF_IEEE802154/6LoWPAN) that expand Ring-0 attack surface.
+SYSTEM_DLKM_PRUNE = frozenset({
+    "gzvm", "kheaders",
+    "tipc", "diag",
+    "can", "can_raw", "can_bcm", "can_gw", "can_dev", "vcan", "slcan",
+    "ieee802154", "ieee802154_socket", "ieee802154_6lowpan", "mac802154",
+    "6lowpan", "nhc_dest", "nhc_fragment", "nhc_hop", "nhc_ipv6", "nhc_mobility", "nhc_routing", "nhc_udp",
+})
 
 
 def sha256_file(path: Path) -> str:
@@ -269,7 +278,11 @@ make -j{args.jobs} "${{MAKE_ARGS[@]}}" INSTALL_MOD_PATH="$MOD_INSTALL" modules_i
             shutil.copytree(item, dst)
         else:
             shutil.copy2(item, dst)
-    shutil.copy2(dlkm_dst / "modules.order", dlkm_dst / "modules.load")
+    kept_load = [
+        line for line in (dlkm_dst / "modules.order").read_text().splitlines()
+        if line.strip() and Path(line.strip()).stem.replace("-", "_") not in SYSTEM_DLKM_PRUNE
+    ]
+    (dlkm_dst / "modules.load").write_text("\n".join(kept_load) + "\n")
     for p in dlkm_dst.rglob("*"):
         os.chmod(p, 0o755 if p.is_dir() else 0o644)
 

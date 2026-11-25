@@ -274,7 +274,7 @@ class TargetFiles:
                 if (top in EXTRACT_ROOTS or info.filename in EXTRA_EXTRACTED or
                         re.fullmatch(r"(?:VENDOR|ODM)/etc/selinux/precompiled_sepolicy", info.filename) or
                         (info.filename.startswith(MICROG_JNI_ROOT) and info.filename.endswith(".so")) or
-                        (top in APK_ROOTS and re.search(r"(\.apk|\.jar|\.capex|\.apex|\.ko|\.prop|\.xml)$", info.filename))):
+                        (top in APK_ROOTS and re.search(r"(\.apk|\.jar|\.capex|\.apex|\.ko|\.prop|\.xml|modules\.(?:load|blocklist))$", info.filename))):
                     target = self.root / info.filename
                     target.parent.mkdir(parents=True, exist_ok=True)
                     with archive.open(info) as src, open(target, "wb") as dst:
@@ -890,10 +890,11 @@ def check_kernel_links(report, args, tools, work, extracted, tf, source, gki=Non
     report.add("vendor_boot_dtb_equals_retained_stock_dtb",
                dtb.is_file() and sha256_file(dtb) == stock["dtb/stock.dtb"]["sha256"])
     ramdisk_files = {}
+    ramdisk_meta = ("lib/modules/modules.load", "lib/modules/modules.blocklist")
     for fragment in sorted(vendor_dir.glob("vendor_ramdisk*")):
         cpio = work / f"{fragment.name}.cpio"
         decompress_ramdisk(tools, fragment, cpio)
-        ramdisk_files.update(read_cpio(cpio))
+        ramdisk_files.update(read_cpio(cpio, ramdisk_meta))
         cpio.unlink()
     for tree, prefix in (("vendor_ramdisk", ""), ("vendor_dlkm", "VENDOR_DLKM/"), ("system_dlkm", "SYSTEM_DLKM/")):
         if tree == "system_dlkm" and gki:
@@ -925,6 +926,50 @@ def check_kernel_links(report, args, tools, work, extracted, tf, source, gki=Non
         kernel_bytes = kernel.read_bytes()
         report.add("gki_drm_clone_compat", b"failed valid clone check" not in kernel_bytes,
                    note="Upstream Linux ffb55ddf2685 breaks Qualcomm 6.1.68 msm_drm.ko CWB clone mode on houji")
+    kcfg = Path(args.rom_dir) / "device/xiaomi/houji/configs/kernel"
+    v_bl_cfg = kcfg / "modules.blocklist.houji"
+    s_bl_cfg = kcfg / "system_dlkm.modules.blocklist"
+    if v_bl_cfg.is_file() and s_bl_cfg.is_file():
+        expected_v_bl = {l.split()[1].replace("-", "_") for l in v_bl_cfg.read_text().splitlines()
+                         if l.strip().startswith("blocklist ")}
+        expected_s_bl = {l.split()[1].replace("-", "_") for l in s_bl_cfg.read_text().splitlines()
+                         if l.strip().startswith("blocklist ")}
+        vb_bl_txt = ramdisk_files.get("bytes:lib/modules/modules.blocklist", b"").decode()
+        vb_load = {Path(l.strip()).stem.replace("-", "_")
+                   for l in ramdisk_files.get("bytes:lib/modules/modules.load", b"").decode().splitlines() if l.strip()}
+        vb_bl = {l.split()[1].replace("-", "_") for l in vb_bl_txt.splitlines()
+                 if l.strip().startswith("blocklist ")}
+        vd_load_p = tf.path("VENDOR_DLKM/lib/modules/modules.load")
+        vd_bl_p = tf.path("VENDOR_DLKM/lib/modules/modules.blocklist")
+        sd_bl_p = tf.path("VENDOR_DLKM/lib/modules/system_dlkm.modules.blocklist")
+        sd_loads = sorted(tf.path("SYSTEM_DLKM/lib/modules").glob("*/modules.load"))
+        vd_bl_txt = vd_bl_p.read_text() if vd_bl_p.is_file() else ""
+        sd_bl_txt = sd_bl_p.read_text() if sd_bl_p.is_file() else ""
+        bad_bl_syntax = []
+        for label, txt in (("vendor_boot", vb_bl_txt), ("vendor_dlkm", vd_bl_txt), ("system_dlkm", sd_bl_txt)):
+            for idx, raw in enumerate(txt.splitlines(), 1):
+                s = raw.strip()
+                if not s:
+                    continue
+                if s.startswith("#"):
+                    if "blocklist" in raw.lower():
+                        bad_bl_syntax.append(f"{label}:{idx}:comment-contains-blocklist")
+                elif not re.fullmatch(r"blocklist [A-Za-z0-9_-]+", s):
+                    bad_bl_syntax.append(f"{label}:{idx}:{s}")
+        vd_load = {Path(l.strip()).stem.replace("-", "_") for l in vd_load_p.read_text().splitlines()
+                   if l.strip()} if vd_load_p.is_file() else {"<missing>"}
+        vd_bl = {l.split()[1].replace("-", "_") for l in vd_bl_txt.splitlines()
+                 if l.strip().startswith("blocklist ")}
+        sd_bl = {l.split()[1].replace("-", "_") for l in sd_bl_txt.splitlines()
+                 if l.strip().startswith("blocklist ")}
+        sd_load = {Path(l.strip()).stem.replace("-", "_") for p in sd_loads
+                   for l in p.read_text().splitlines() if l.strip()} if sd_loads else {"<missing>"}
+        leaked = sorted((vb_load & expected_v_bl) | (vd_load & expected_v_bl) | (sd_load & expected_s_bl))
+        missing_bl = sorted((expected_v_bl - vb_bl) | (expected_v_bl - vd_bl) | (expected_s_bl - sd_bl))
+        report.add("houji_kernel_module_purification", not leaked and not missing_bl and not bad_bl_syntax,
+                   vendor_blocklisted=len(expected_v_bl), system_dlkm_blocklisted=len(expected_s_bl),
+                   leaked_in_load=leaked[:10], missing_in_blocklist=missing_bl[:10],
+                   bad_blocklist_syntax=bad_bl_syntax[:10])
 
 
 def check_recovery_binary(report, tools, work, tf, extracted, manifest):

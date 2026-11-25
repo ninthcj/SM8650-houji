@@ -39,6 +39,7 @@ REQUIRED_CHECKS = (
     "boot_kernel_equals_retained_stock_image",
     "gki_kmi_symbol_crc_parity",
     "gki_drm_clone_compat",
+    "houji_kernel_module_purification",
     "payload_recovery_contains_qti_boot_control_hal",
     "vendor_contains_qti_boot_control_hal",
     "xiaomi_fastcharge_sepolicy_labels_and_rules",
