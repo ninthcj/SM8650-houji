@@ -153,6 +153,20 @@ VENDOR_BOOTCTRL_VINTF_TF_PATH = "VENDOR/etc/vintf/manifest/boot-service.qti.xml"
 VENDOR_SEPOLICY_CIL_TF_PATH = "VENDOR/etc/selinux/vendor_sepolicy.cil"
 VENDOR_FILE_CONTEXTS_TF_PATH = "VENDOR/etc/selinux/vendor_file_contexts"
 VENDOR_ATFWD_SECCOMP_TF_PATH = "VENDOR/etc/seccomp_policy/atfwd@2.0.policy"
+VENDOR_HEALTH_VINTF_TF_PATH = "VENDOR/etc/vintf/manifest/android.hardware.health-service.xiaomi.xml"
+VENDOR_POWERSHARE_VINTF_TF_PATH = "VENDOR/etc/vintf/manifest/vendor.lineage.powershare-service.default.xml"
+DYNAMIC_RO_PARTITIONS = ("system", "system_ext", "product", "vendor", "odm", "system_dlkm", "vendor_dlkm")
+PRUNED_USERSPACE_DAEMONS = (
+    "VENDOR/bin/hw/vendor.rongcard.eid@1.0-service",
+    "VENDOR/bin/hw/vendor.qti.sla.service@1.0-service",
+    "VENDOR/bin/slad",
+    "ODM/bin/mlipayd",
+    "ODM/bin/fidoca",
+    "ODM/bin/tidad",
+    "ODM/bin/mtd",
+    "ODM/bin/toucheventcheck",
+)
+EROFS_SUPER_MAGIC = b"\xe2\xe1\xf5\xe0"
 # Literals of install.cpp ConfirmUntrustedInstall (bootable/recovery): the prompt a user sees
 # for firmware ZIPs that are not signed by the release key.
 RECOVERY_MENU_HEADERS = (b"Signature verification failed", b"Install untrusted package?")
@@ -161,6 +175,7 @@ EXTRA_EXTRACTED = {
     OTA_CERTS_APK_PATH, INIT_TARGET_FILES_PATH, EUICC_JNI, RECOVERY_TF_BINARY_PATH,
     VENDOR_BOOTCTRL_TF_PATH, VENDOR_BOOTCTRL_RC_TF_PATH, VENDOR_BOOTCTRL_VINTF_TF_PATH,
     VENDOR_SEPOLICY_CIL_TF_PATH, VENDOR_FILE_CONTEXTS_TF_PATH, VENDOR_ATFWD_SECCOMP_TF_PATH,
+    VENDOR_HEALTH_VINTF_TF_PATH, VENDOR_POWERSHARE_VINTF_TF_PATH,
 }
 LOCAL_PORT_PROJECTS = {"device/xiaomi/houji", "device/xiaomi/sm8650-common", "hardware/xiaomi",
                        "vendor/yaap", "vendor/microg", "vendor/xiaomi/houji"}
@@ -397,6 +412,25 @@ def check_ota(report, args, tools, work, tf, payload_dir):
     return extracted
 
 
+def is_erofs_image(path):
+    with open(path, "rb") as stream:
+        stream.seek(1024)
+        return stream.read(4) == EROFS_SUPER_MAGIC
+
+
+def resolve_in_extracted_root(root, rel_path):
+    cur = Path(root)
+    for part in Path(rel_path.lstrip("/")).parts:
+        nxt = cur / part
+        for _ in range(16):
+            if not nxt.is_symlink():
+                break
+            target = os.readlink(nxt)
+            nxt = (Path(root) / target.lstrip("/")) if target.startswith("/") else (nxt.parent / target)
+        cur = nxt
+    return cur
+
+
 def check_partitions(report, tf, extracted):
     core = set(CORE_PARTITIONS)
     ab = tf.path("META/ab_partitions.txt").read_text().split()
@@ -409,23 +443,33 @@ def check_partitions(report, tf, extracted):
     radio = sorted(name for name in tf.names if name.split("/", 1)[0] == "RADIO")
     report.artifacts["payload_partitions"] = sorted(extracted)
     report.add("no_radio_items_in_target_files", not radio, radio_items=radio)
+    non_erofs = sorted(p for p in DYNAMIC_RO_PARTITIONS if p not in extracted or not is_erofs_image(extracted[p]))
+    report.add("readonly_partitions_use_erofs", not non_erofs, non_erofs=non_erofs)
 
 
 def check_init_aliases(report, tools, work, tf, extracted):
     image = extracted["system"]
     with tempfile.TemporaryDirectory(prefix="init-", dir=work) as scratch:
-        dest = Path(scratch) / "init"
-        run([tools("debugfs"), "-R", f'dump "{INIT_IMAGE_PATH}" "{dest}"', image], env=tools.env())
-        link = run([tools("debugfs"), "-R", f"stat {INIT_LINK_PATH}", image], env=tools.env())
-        data = dest.read_bytes() if dest.is_file() else b""
+        if is_erofs_image(image):
+            run([tools("fsck.erofs"), f"--extract={scratch}", "--overwrite", image], env=tools.env())
+            dest = resolve_in_extracted_root(scratch, INIT_IMAGE_PATH)
+            link_node = Path(scratch) / INIT_LINK_PATH.lstrip("/")
+            link_dest = os.readlink(link_node) if link_node.is_symlink() else None
+            data = dest.read_bytes() if dest.is_file() else b""
+        else:
+            dest = Path(scratch) / "init"
+            run([tools("debugfs"), "-R", f'dump "{INIT_IMAGE_PATH}" "{dest}"', image], env=tools.env())
+            link = run([tools("debugfs"), "-R", f"stat {INIT_LINK_PATH}", image], env=tools.env())
+            m = re.search(r'Fast link dest: "([^"]*)"', link)
+            link_dest = m[1] if m else None
+            data = dest.read_bytes() if dest.is_file() else b""
     digest = hashlib.sha256(data).hexdigest()
     missing = [s.decode() for s in INIT_REQUIRED_STRINGS if b"\0" + s + b"\0" not in data]
     elf_arm64 = data[:6] == b"\x7fELF\x02\x01" and data[18:20] == b"\xb7\x00"
     report.add("system_bin_init_is_arm64_elf_with_houji_houjiin_sku_normalization_strings",
                elf_arm64 and not missing, bytes=len(data), sha256=digest, missing_strings=missing)
-    destination = re.search(r'Fast link dest: "([^"]*)"', link)
-    report.add("root_init_links_to_system_bin_init", bool(destination) and destination[1] == INIT_IMAGE_PATH,
-               link_destination=destination[1] if destination else None)
+    report.add("root_init_links_to_system_bin_init", link_dest == INIT_IMAGE_PATH,
+               link_destination=link_dest)
     staged = tf.path(INIT_TARGET_FILES_PATH)
     report.add("target_files_system_bin_init_equals_payload", staged.is_file() and sha256_file(staged) == digest,
                sha256=digest)
@@ -1215,13 +1259,27 @@ def check_released_apk_bytes(report, tools, work, tf, extracted, summary):
     audited_files.update((name, sha256_file(tf.path(name))) for name in config_files)
     mismatches = []
     with tempfile.TemporaryDirectory(prefix="image-apks-", dir=work) as scratch:
-        dest = Path(scratch) / "entry"
+        scratch = Path(scratch)
+        erofs_roots = {}
         for name, expected in sorted(audited_files.items()):
             partition, path = name.split("/", 1)
-            run([tools("debugfs"), "-R", f'dump "/{path}" "{dest}"', extracted[partition.lower()]], env=tools.env())
-            if not dest.is_file() or sha256_file(dest) != expected:
-                mismatches.append(name)
-            dest.unlink(missing_ok=True)
+            part_key = partition.lower()
+            img = extracted[part_key]
+            if is_erofs_image(img):
+                if part_key not in erofs_roots:
+                    part_dir = scratch / part_key
+                    part_dir.mkdir(parents=True, exist_ok=True)
+                    run([tools("fsck.erofs"), f"--extract={part_dir}", "--overwrite", img], env=tools.env())
+                    erofs_roots[part_key] = part_dir
+                target = resolve_in_extracted_root(erofs_roots[part_key], path)
+                if not target.is_file() or sha256_file(target) != expected:
+                    mismatches.append(name)
+            else:
+                dest = scratch / "entry"
+                run([tools("debugfs"), "-R", f'dump "/{path}" "{dest}"', img], env=tools.env())
+                if not dest.is_file() or sha256_file(dest) != expected:
+                    mismatches.append(name)
+                dest.unlink(missing_ok=True)
     report.add("microg_aperture_esim_apk_jni_and_config_bytes_in_payload_filesystems",
                len(audited_apks) == len(packages) and not mismatches,
                checked_files=sorted(audited_files), mismatches=mismatches)
@@ -1250,6 +1308,27 @@ def check_build_props(report, args, tf):
                        and "test-keys" not in p.get("ro.build.tags", ""), gating=True)
     misc = tf.path("META/misc_info.txt").read_text()
     report.add("target_files_misc_info_avb_enabled", "avb_enable=true" in misc)
+    leaked_daemons = sorted(d for d in PRUNED_USERSPACE_DAEMONS if d in tf.names)
+    mtd_stub_kept = "VENDOR/lib64/vendor.xiaomi.hardware.aidl.mtdservice-V1-ndk_platform.so" in tf.names
+    report.add("userspace_dead_daemons_pruned", not leaked_daemons and mtd_stub_kept,
+               leaked_daemons=leaked_daemons, mtd_aidl_stub_retained=mtd_stub_kept)
+    prod_prop_path = tf.path("PRODUCT/etc/build.prop") if "PRODUCT/etc/build.prop" in tf.names else tf.path("PRODUCT/build.prop")
+    prod_props = tf.props("PRODUCT/etc/build.prop") if prod_prop_path.name == "build.prop" and "PRODUCT/etc/build.prop" in tf.names else (
+        tf.props("PRODUCT/build.prop") if tf.path("PRODUCT/build.prop").is_file() else {}
+    )
+    health_xml = tf.path(VENDOR_HEALTH_VINTF_TF_PATH).read_text() if tf.path(VENDOR_HEALTH_VINTF_TF_PATH).is_file() else ""
+    unlock_details = {
+        "blur_enabled": system.get("ro.surface_flinger.supports_background_blur") == "1"
+                        and prod_props.get("ro.launcher.blur.appLaunch") != "0",
+        "ssr_ramdumps_disabled": system.get("persist.vendor.ssr.enable_ramdumps") == "0",
+        "mglru_all": system.get("persist.device_config.mglru_native.lru_gen_config") == "all",
+        "powershare_installed": "VENDOR/bin/hw/vendor.lineage.powershare-service.default" in tf.names
+                                and tf.path(VENDOR_POWERSHARE_VINTF_TF_PATH).is_file(),
+        "xiaomi_health_v5_installed": "VENDOR/bin/hw/android.hardware.health-service.xiaomi" in tf.names
+                                      and "VENDOR/bin/hw/android.hardware.health-service.qti" not in tf.names
+                                      and "<version>5</version>" in health_xml,
+    }
+    report.add("flagship_hardware_and_ux_unlocks", all(unlock_details.values()), **unlock_details)
     return props
 
 
