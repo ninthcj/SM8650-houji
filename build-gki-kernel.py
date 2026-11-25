@@ -25,10 +25,10 @@ CLANG_URL = (
 DEFAULT_PATCH = Path(__file__).resolve().parent / "patches/gki_common/0001-Revert-drm-Add-valid-clones-check.patch"
 DEFAULT_CONTAINER = "localhost/houji-aosp-builder:ubuntu24.04"
 # Unused system_dlkm modules on Xiaomi 14 (houji): MediaTek hypervisor, runtime header archive,
-# and unused socket families (AF_TIPC, AF_CAN, AF_IEEE802154/6LoWPAN) that expand Ring-0 attack surface.
+# and unused socket families (AF_CAN, AF_IEEE802154/6LoWPAN) that expand Ring-0 attack surface.
+# Note: AF_TIPC (tipc + diag) is required by Qualcomm SM8650 nicmd/tlpd IPC for DSI/IMS/data.
 SYSTEM_DLKM_PRUNE = frozenset({
     "gzvm", "kheaders",
-    "tipc", "diag",
     "can", "can_raw", "can_bcm", "can_gw", "can_dev", "vcan", "slcan",
     "ieee802154", "ieee802154_socket", "ieee802154_6lowpan", "mac802154",
     "6lowpan", "nhc_dest", "nhc_fragment", "nhc_hop", "nhc_ipv6", "nhc_mobility", "nhc_routing", "nhc_udp",
@@ -186,6 +186,7 @@ def main() -> int:
     parser.add_argument("--patch", type=Path, default=DEFAULT_PATCH, help="DRM clone-check revert patch path")
     parser.add_argument("--container", default=DEFAULT_CONTAINER, help="Podman builder image (pass '' for host build)")
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 8, help="Parallel make jobs")
+    parser.add_argument("--restage-only", action="store_true", help="Restage from existing .kernel-build outputs without rebuilding")
     args = parser.parse_args()
 
     yaap = args.yaap_dir.resolve()
@@ -202,10 +203,11 @@ def main() -> int:
     out_build = work_dir / "out"
     mod_install = work_dir / "mod_install"
 
-    ensure_patched_source(common_dir, patch_path)
-    ensure_clang(toolchain_dir)
+    if not args.restage_only:
+        ensure_patched_source(common_dir, patch_path)
+        ensure_clang(toolchain_dir)
 
-    build_script = f"""
+        build_script = f"""
 set -euo pipefail
 rm -rf "$KOUT" "$MOD_INSTALL"
 mkdir -p "$KOUT"
@@ -225,30 +227,30 @@ make -j{args.jobs} "${{MAKE_ARGS[@]}}" Image modules
 make -j{args.jobs} "${{MAKE_ARGS[@]}}" INSTALL_MOD_PATH="$MOD_INSTALL" modules_install
 """
 
-    if args.container:
-        cmd = [
-            "podman", "run", "--rm", "--userns=keep-id",
-            "-v", f"{work_dir}:/kwork:Z",
-            "-v", f"{kbt_dir}:/kbt:ro,Z",
-            "-w", "/kwork/common",
-            "-e", "PATH=/kwork/toolchain/bin:/kbt/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-            "-e", "LD_LIBRARY_PATH=/kbt/lib64",
-            "-e", "KBUILD_BUILD_USER=build-user",
-            "-e", "KBUILD_BUILD_HOST=build-host",
-            "-e", "KOUT=/kwork/out",
-            "-e", "MOD_INSTALL=/kwork/mod_install",
-            args.container, "bash", "-lc", build_script,
-        ]
-        run(cmd)
-    else:
-        env = os.environ.copy()
-        env["PATH"] = f"{toolchain_dir / 'bin'}:{kbt_dir / 'bin'}:{env.get('PATH', '')}"
-        env["LD_LIBRARY_PATH"] = f"{kbt_dir / 'lib64'}:{env.get('LD_LIBRARY_PATH', '')}".rstrip(":")
-        env["KBUILD_BUILD_USER"] = "build-user"
-        env["KBUILD_BUILD_HOST"] = "build-host"
-        env["KOUT"] = str(out_build)
-        env["MOD_INSTALL"] = str(mod_install)
-        subprocess.run(["bash", "-lc", build_script], cwd=common_dir, env=env, check=True)
+        if args.container:
+            cmd = [
+                "podman", "run", "--rm", "--userns=keep-id",
+                "-v", f"{work_dir}:/kwork:Z",
+                "-v", f"{kbt_dir}:/kbt:ro,Z",
+                "-w", "/kwork/common",
+                "-e", "PATH=/kwork/toolchain/bin:/kbt/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "-e", "LD_LIBRARY_PATH=/kbt/lib64",
+                "-e", "KBUILD_BUILD_USER=build-user",
+                "-e", "KBUILD_BUILD_HOST=build-host",
+                "-e", "KOUT=/kwork/out",
+                "-e", "MOD_INSTALL=/kwork/mod_install",
+                args.container, "bash", "-lc", build_script,
+            ]
+            run(cmd)
+        else:
+            env = os.environ.copy()
+            env["PATH"] = f"{toolchain_dir / 'bin'}:{kbt_dir / 'bin'}:{env.get('PATH', '')}"
+            env["LD_LIBRARY_PATH"] = f"{kbt_dir / 'lib64'}:{env.get('LD_LIBRARY_PATH', '')}".rstrip(":")
+            env["KBUILD_BUILD_USER"] = "build-user"
+            env["KBUILD_BUILD_HOST"] = "build-host"
+            env["KOUT"] = str(out_build)
+            env["MOD_INSTALL"] = str(mod_install)
+            subprocess.run(["bash", "-lc", build_script], cwd=common_dir, env=env, check=True)
 
     release = (out_build / "include/config/kernel.release").read_text().strip()
     image_src = out_build / "arch/arm64/boot/Image"

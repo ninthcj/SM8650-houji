@@ -151,6 +151,8 @@ VENDOR_BOOTCTRL_TF_PATH = "VENDOR/bin/hw/android.hardware.boot-service.qti"
 VENDOR_BOOTCTRL_RC_TF_PATH = "VENDOR/etc/init/android.hardware.boot-service.qti.rc"
 VENDOR_BOOTCTRL_VINTF_TF_PATH = "VENDOR/etc/vintf/manifest/boot-service.qti.xml"
 VENDOR_SEPOLICY_CIL_TF_PATH = "VENDOR/etc/selinux/vendor_sepolicy.cil"
+VENDOR_FILE_CONTEXTS_TF_PATH = "VENDOR/etc/selinux/vendor_file_contexts"
+VENDOR_ATFWD_SECCOMP_TF_PATH = "VENDOR/etc/seccomp_policy/atfwd@2.0.policy"
 # Literals of install.cpp ConfirmUntrustedInstall (bootable/recovery): the prompt a user sees
 # for firmware ZIPs that are not signed by the release key.
 RECOVERY_MENU_HEADERS = (b"Signature verification failed", b"Install untrusted package?")
@@ -158,7 +160,7 @@ RECOVERY_PROJECT = "bootable/recovery"
 EXTRA_EXTRACTED = {
     OTA_CERTS_APK_PATH, INIT_TARGET_FILES_PATH, EUICC_JNI, RECOVERY_TF_BINARY_PATH,
     VENDOR_BOOTCTRL_TF_PATH, VENDOR_BOOTCTRL_RC_TF_PATH, VENDOR_BOOTCTRL_VINTF_TF_PATH,
-    VENDOR_SEPOLICY_CIL_TF_PATH,
+    VENDOR_SEPOLICY_CIL_TF_PATH, VENDOR_FILE_CONTEXTS_TF_PATH, VENDOR_ATFWD_SECCOMP_TF_PATH,
 }
 LOCAL_PORT_PROJECTS = {"device/xiaomi/houji", "device/xiaomi/sm8650-common", "hardware/xiaomi",
                        "vendor/yaap", "vendor/microg", "vendor/xiaomi/houji"}
@@ -753,6 +755,13 @@ def check_sepolicy(report, tools, tf):
     )
     missing_cil = [snippet for snippet in required_cil if snippet not in cil]
     report.add("xiaomi_fastcharge_sepolicy_labels_and_rules", not missing_cil, missing=missing_cil)
+    vfc_path = tf.path(VENDOR_FILE_CONTEXTS_TF_PATH)
+    vfc = vfc_path.read_text() if vfc_path.is_file() else ""
+    sphal_ok = bool(re.search(r"^/\(odm\|vendor\)/lib64/libcamxexternalformatutils\\\.so\s+u:object_r:same_process_hal_file:s0$", vfc, re.M))
+    report.add("camera_sphal_odm_file_contexts", sphal_ok)
+    atfwd_path = tf.path(VENDOR_ATFWD_SECCOMP_TF_PATH)
+    atfwd_lines = {l.strip() for l in atfwd_path.read_text().splitlines()} if atfwd_path.is_file() else set()
+    report.add("atfwd_seccomp_allows_lseek", "lseek: 1" in atfwd_lines)
 
 
 def read_cpio(path, capture=()):
@@ -966,8 +975,11 @@ def check_kernel_links(report, args, tools, work, extracted, tf, source, gki=Non
                    for l in p.read_text().splitlines() if l.strip()} if sd_loads else {"<missing>"}
         leaked = sorted((vb_load & expected_v_bl) | (vd_load & expected_v_bl) | (sd_load & expected_s_bl))
         missing_bl = sorted((expected_v_bl - vb_bl) | (expected_v_bl - vd_bl) | (expected_s_bl - sd_bl))
-        report.add("houji_kernel_module_purification", not leaked and not missing_bl and not bad_bl_syntax,
+        tipc_ipc_ok = {"tipc", "diag"} <= sd_load and not ({"tipc", "diag"} & (sd_bl | expected_s_bl))
+        report.add("houji_kernel_module_purification",
+                   not leaked and not missing_bl and not bad_bl_syntax and tipc_ipc_ok,
                    vendor_blocklisted=len(expected_v_bl), system_dlkm_blocklisted=len(expected_s_bl),
+                   tipc_ipc_modules_enabled=tipc_ipc_ok,
                    leaked_in_load=leaked[:10], missing_in_blocklist=missing_bl[:10],
                    bad_blocklist_syntax=bad_bl_syntax[:10])
 

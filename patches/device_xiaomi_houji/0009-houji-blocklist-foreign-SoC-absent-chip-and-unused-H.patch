@@ -1,4 +1,4 @@
-From 8227f0a704e397866d2ec849050112857ff8d197 Mon Sep 17 00:00:00 2001
+From 59f3b727c04fc57cea973a1bf5fafa3a9e1c394a Mon Sep 17 00:00:00 2001
 From: ninthcj <327845320+ninthcj@users.noreply.github.com>
 Date: Wed, 25 Nov 2026 09:35:28 -0400
 Subject: [PATCH 9/9] houji: blocklist foreign-SoC, absent-chip, and unused
@@ -9,8 +9,8 @@ Subject: [PATCH 9/9] houji: blocklist foreign-SoC, absent-chip, and unused
  configs/kernel/modules.load.vendor_dlkm.houji | 337 ++++++++++++++++++
  configs/kernel/prebuilt-product.mk            |  10 +-
  configs/kernel/prebuilt.mk                    |  13 +-
- configs/kernel/system_dlkm.modules.blocklist  |  24 ++
- 5 files changed, 489 insertions(+), 7 deletions(-)
+ configs/kernel/system_dlkm.modules.blocklist  |  22 ++
+ 5 files changed, 487 insertions(+), 7 deletions(-)
  create mode 100644 configs/kernel/modules.blocklist.houji
  create mode 100644 configs/kernel/modules.load.vendor_dlkm.houji
  create mode 100644 configs/kernel/system_dlkm.modules.blocklist
@@ -530,10 +530,10 @@ index bc720b7..46e4df5 100644
  BOARD_RECOVERY_KERNEL_MODULES_BLOCKLIST_FILE := $(BOARD_VENDOR_RAMDISK_KERNEL_MODULES_BLOCKLIST_FILE)
 diff --git a/configs/kernel/system_dlkm.modules.blocklist b/configs/kernel/system_dlkm.modules.blocklist
 new file mode 100644
-index 0000000..8c45c66
+index 0000000..07e3780
 --- /dev/null
 +++ b/configs/kernel/system_dlkm.modules.blocklist
-@@ -0,0 +1,24 @@
+@@ -0,0 +1,22 @@
 +# SPDX-License-Identifier: GPL-2.0-only
 +blocklist 6lowpan
 +blocklist can
@@ -541,7 +541,6 @@ index 0000000..8c45c66
 +blocklist can_dev
 +blocklist can_gw
 +blocklist can_raw
-+blocklist diag
 +blocklist gzvm
 +blocklist ieee802154
 +blocklist ieee802154_6lowpan
@@ -556,7 +555,6 @@ index 0000000..8c45c66
 +blocklist nhc_routing
 +blocklist nhc_udp
 +blocklist slcan
-+blocklist tipc
 +blocklist vcan
 -- 
 2.56.1

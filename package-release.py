@@ -43,6 +43,8 @@ REQUIRED_CHECKS = (
     "payload_recovery_contains_qti_boot_control_hal",
     "vendor_contains_qti_boot_control_hal",
     "xiaomi_fastcharge_sepolicy_labels_and_rules",
+    "camera_sphal_odm_file_contexts",
+    "atfwd_seccomp_allows_lseek",
     "bootstrap_super_empty_header_and_geometry",
     "avb_vbmeta",
     "avb_vbmeta_system",
