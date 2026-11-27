@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only
+load(":define_xiaomi_modules.bzl", "define_xiaomi_bsp_modules")
+
+define_xiaomi_bsp_modules("pineapple", "gki")
+define_xiaomi_bsp_modules("pineapple", "consolidate")
+define_xiaomi_bsp_modules("pineapple", "perf")

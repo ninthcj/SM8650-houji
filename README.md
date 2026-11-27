@@ -6,108 +6,79 @@ Full-stack pure **GKI 2.0** (`6.12` & `6.1` LTS) kernel bringup, out-of-tree DDK
 
 | Branch | Kernel Baseline | Vendor Modules & DT | Status |
 | :--- | :--- | :--- | :--- |
-| **[`6.12`](../../tree/6.12)** *(Default)* | Pure **GKI 2.0 Linux `6.12.81`** (`android16-6.12`, **`0` patches to `kernel/common`**) | **Full out-of-tree DDK sources** (322 purified `.ko` + 54 `system_dlkm`, single-pass `6.12` DT/DTBO, 5-gate + QEMU `kCFI`) | Active mainline |
-| **[`6.1`](../../tree/6.1)** *(This branch)* | **`android14-6.1` LTS (`6.1.182`)** (single DRM CWB clone-check revert) | Prebuilt `OS3.0.307.0` stock vendor DLKM (654 `.ko`, 73 Ring-0 modules blocklisted, 39,140 KMI CRCs verified) | Maintained LTS |
+| **[`6.12`](../../tree/6.12)** *(Default)* | Pure **GKI 2.0 Linux `6.12.81`** (`android16-6.12`, **`0` patches to `kernel/common`**) | **Full out-of-tree DDK sources** (`322` purified `.ko` + `54` `system_dlkm`, single-pass `6.12` DT/DTBO, 5-gate + QEMU `kCFI`) | Active mainline |
+| **[`6.1`](../../tree/6.1)** | `android14-6.1` LTS (`6.1.182`, single DRM CWB revert) | Prebuilt `OS3.0.307.0` stock vendor DLKM (`654` `.ko`, `73` Ring-0 modules blocklisted) | Maintained LTS |
 
 > **Note:** Personal engineering repository shared **as-is** (`rootless`, FOSS-first). **Never relock your bootloader** when running custom-signed builds on Xiaomi hardware.
 
-## Highlights (`6.1` LTS Branch)
+## Highlights (`6.12` Pure GKI 2.0 Branch)
 
-- **Region-Agnostic Bring-Your-Own-Firmware (BYOF)**: Ships strictly the **14 OS partitions** (`boot`, `dtbo`, `init_boot`, `odm`, `product`, `recovery`, `system`, `system_dlkm`, `system_ext`, `vbmeta`, `vbmeta_system`, `vendor`, `vendor_boot`, `vendor_dlkm`) and **zero radio/firmware partitions**. Works across CN (`23127PN0CC`) and Global/EEA/IN (`23127PN0CG`, `houji` / `houjiin`) on a **HyperOS 3 (`OS3.0.x`)** firmware baseline.
-- **FOSS-First & Native microG**: Uses YAAP's native Vanilla `vendor/microg` integration, pinned upstream GrapheneOS `Vanadium 158.0.8127.92.0`, `Aperture` multi-lens camera, `Seedvault` backup, and `OpenEUICC` + `XiaomiEsimSwitcher` (auto-enabled on Global SKU, masked on CN SKU). Excludes `vendor/google/gms`, `vendor/google/pixel`, and bundled proprietary Play/Firebase apps (`YASR`, `TalkBack`, `ImsServiceEntitlement`).
-- **Updated & Purified `android14-6.1` GKI 2.0 LTS Kernel (`6.1.182`)**: Built reproducibly from pinned Google `kernel/common` `android14-6.1` (`7bae370c0f35c4188943c4d8a4d5a357d157767f`, `6.1.182`) with official Android `clang-r487747c` via `kernel/build-kernel-6.1.py`, applying a single surgical revert (`kernel/patches/0001-Revert-drm-Add-valid-clones-check.patch`) of upstream Linux `ffb55ddf2685` (`drm: Add valid clones check`, `6.1.142+`) so Qualcomm's prebuilt `6.1.68` `msm_drm.ko` CWB under-display RGB ambient light sensor runs cleanly without `-EINVAL` flicker. Retains stock `OS3.0.307.0` DTBs, DTBO, and 654 signed vendor `.ko` modules with **100% ELF KMI symbol CRC verification** (`39,140 / 39,140` refs, `0` mismatches, `0` missing), while blocklisting and pruning 73 foreign-SoC, absent-IC, unused socket/hypervisor (`gzvm`, `kheaders`, `can*`, `ieee802154*`, `6lowpan`), and proprietary HyperOS Ring-0 hook modules (`496 -> 423` loaded modules, retaining `tipc` + `tipc/diag` for SM8650 `nicmd`/`tlpd`).
-- **ROM, Recovery & Tooling**:
-  - **EROFS (`lz4hc,9` + block deduplication)** across all 7 read-only dynamic partitions (`system`, `system_ext`, `product`, `vendor`, `odm`, `system_dlkm`, `vendor_dlkm`) and pruning of orphaned payment/SLA daemons.
-  - `hardware/qcom-caf/bootctrl`, `vendor/codeaurora/telephony` (`LA.QSSI.16.0`), `/odm/lib64/libcamxexternalformatutils.so` SP-HAL labeling, `atfwd` `lseek` seccomp, real-time Gaussian blur, 10W `Wireless PowerShare`, upgraded `android.hardware.health-service.xiaomi` (`IHealth` V5) with 80% PMIC bypass charging + SOH, and Xiaomi 90W fast-charge SELinux wiring.
-  - Interactive physical confirmation on unlocked devices in Recovery (`--firmware`), rootless `flash.sh` with `super_empty.img` (`wipe-super`), 119-check `verify-release.py`, and atomic `package-release.py`.
+- **Zero Modifications to Upstream Google `kernel/common`**:
+  - Runs strictly against unmodified Google GKI 2.0 `android16-6.12` (`8fc057fab7569433e990d11a2362ccb84f7b301d`, `6.12.81-android16-6-g8fc057fab756-4k`, `KMI_GENERATION=6`, `CFI_CLANG` strict + `FORTIFY_SOURCE` + `UBSAN_BOUNDS`).
+  - Minimal orthogonal SoC platform enablement and header stubs (`icc-debug.h`, `debug_symbol.h` without `kallsyms_lookup_name`) live cleanly under `kernel/patches-soc-repo/`.
+- **Purified Full Out-of-Tree Source Stack (`kernel/`)**:
+  - **10 Multimedia & DSP Techpacks** (`kernel/techpacks-mm/src/`: `camera-kernel`, `display-drivers`, `dsp-kernel`, `eva-kernel`, `graphics-kernel`, `mm-drivers`, `mmrm-driver`, `mm-sys-kernel`, `synx-kernel`, `video-driver`).
+  - **8 Connectivity, Audio & Security Techpacks** (`kernel/techpacks-conn/src/`: `audio-kernel`, `bt-kernel`, `dataipa`, `datarmnet`, `datarmnet-ext`, `securemsm-kernel`, `spu-kernel`, `wlan`).
+  - **12 Xiaomi `houji` BSP Modules** (`kernel/xiaomi-modules/src/`: `xiaomi_touch`, `synaptics_tcm2`, `goodix_fod`, `qti_battery_charger`, `qcom-hv-haptics`, `mi_thermal_interface`, `nxp-nci`, `ir-spi`, `dump_display`, `hwid`, `xiaomi_wifi_gpio`, `mi_md_kmsg`) decoupled from `miev`.
+  - **Ring-0 Purification**: 37 debug/tracing/test Kconfigs (`CORESIGHT*`, `STM*`, `QCOM_DEBUG_SYMBOL`, `QCOM_EUD`, `ICC_DEBUG`, `LOGBUF_*`, etc.) disabled at build time; unused VM/PC `system_dlkm` drivers pruned (`54` kept: `40` boot-loaded + `14` hotplug-only OTG; `356` loaded runtime modules with `tipc`, `tipc_diag`, and `hci_uart` retained).
+- **Single-Pass `6.12` Device Tree & Hardware Parity (`kernel/devicetree-houji/`)**:
+  - Single-pass `cpp + dtc -@ + fdtoverlaymerge + ufdt_apply_overlay` compiler (`build_dt.py`) and binary FDT parity auditor (`audit_dt.py`).
+  - Hardware validated on-device under `SELinux = Enforcing`: 120Hz LTPO TCL CSOT N3 OLED (`mi,panel-id` + CWB under-display ambient light + 0 ESD `HandlePanelDead` resets), Wi-Fi 7 (`kiwi_v2`), Bluetooth (`WCN785x`), Dual-SIM 5G (`MPSS` + `TIPC`), 9 camera devices (dynamically resolved `gpiolib` shared camera GPIOs), dual `CS35L41` + `WCD939x` 24-bit audio, EVA (`evass.mbn`), USB3/Type-C (`ssusb@a600000` decoupled from disabled `eud`), NFC, IR, FOD, RichTap haptics, ThermalHAL AIDL 3, 90W fast charge + 80% PMIC bypass charging (`night_charging`) + 10W PowerShare, and Gunyah EL2 `md_kmsg`.
+- **5-Gate Offline + ARM64 QEMU `kCFI` Verification (`kernel/assemble-images-6.12.py`)**:
+  - Automated topological `depmod`/`softdep` stage-1/recovery/stage-2 closure, EROFS (`lz4hc,9`) dynamic DLKM generation, full `avbtool verify_image` RSA-4096 verification, AOSP `checkvintf`, full ELF64 `vermagic` + `24,697`-symbol KMI CRC parity, and live ARM64 `qemu-system-aarch64` `kCFI` smoke module-loading (`kernel/qemu/`).
+- **Region-Agnostic BYOF Android 17 ROM & Tooling**:
+  - `manifest/houji.xml`, `patches/`, `apply-patches.sh`, `Containerfile`, `verify-preflight.py`, `verify-release.py`, `package-release.py`, and rootless `flash.sh` (`wipe-super` + Interactive Recovery `--firmware` prompt + EROFS OS partitions + FOSS microG + GrapheneOS Vanadium + OpenEUICC).
 
 ## Repository Layout
 
-- `manifest/houji.xml` — `.repo/local_manifests/houji.xml` pinning device, vendor, hardware, kernel UAPI, QTI telephony, Vanadium, and YAAP revisions.
-- `patches/` & `apply-patches.sh` — Clean `git format-patch` series applied onto branch `yaap-17` across the 8 adapted ROM repositories.
-- `kernel/build-kernel-6.1.py` & `kernel/patches/` — Fetches pinned Google `android14-6.1` (`6.1.182`) + `clang-r487747c`, applies `0001-Revert-drm-Add-valid-clones-check.patch`, builds `Image` + 60 signed `system_dlkm` modules (pruning 21 unused hypervisor/socket modules), verifies all 39,140 KMI CRCs, and stages into `yaap/kernel/prebuilts/houji-gki/`.
-- `Containerfile` — Rootless Podman Ubuntu 24.04 AOSP build environment.
-- `verify-preflight.py`, `verify-release.py`, `package-release.py`, `flash.sh` — Source preflight gate, 119-check release auditor, `dist/` publisher, and interactive rootless installer.
+- `kernel/patches-soc-repo/` — Orthogonal `soc-repo` (`kernel.lnx.6.12.r69-rel`) diff and `pineapple` Kleaf platform files.
+- `kernel/devicetree-houji/` — 6.12 `pineapple` + `houji` `.dts`/`.dtsi` sources, `build_dt.py`, and `audit_dt.py`.
+- `kernel/techpacks-mm/src/` — Full multimedia & DSP out-of-tree DDK techpack sources.
+- `kernel/techpacks-conn/src/` — Full connectivity, audio, IPA/RMNet, WLAN, and security out-of-tree DDK techpack sources.
+- `kernel/xiaomi-modules/` — Xiaomi 14 BSP module sources (`src/`) and `MODULE_MAP.json`.
+- `kernel/build-kernel-6.12.py` — End-to-end KP5 repo sync, `soc-repo` patching, symlink wiring, Kleaf `bazel` build, and ELF64 KMI verifier.
+- `kernel/assemble-images-6.12.py` & `kernel/qemu/` — 5-gate rootless image assembler (`boot`, `dtbo`, `vendor_boot`, `recovery`, `system_dlkm`, `vendor_dlkm`, `vbmeta*`) and ARM64 QEMU `kCFI` harness.
+- `manifest/`, `patches/`, `apply-patches.sh`, `Containerfile`, `verify-preflight.py`, `verify-release.py`, `package-release.py`, `flash.sh` — YAAP 17 (Android 17) BYOF ROM build, audit, and rootless flash pipeline.
 
-## Reproducing the Build (`6.1`)
+## Reproducing the Build (`6.12`)
 
-### 1. Build the rootless container & generate your own signing keys
+### 1. Build the ROM baseline & generate offline signing keys
 
 ```bash
 podman build -t localhost/houji-aosp-builder:ubuntu24.04 -f Containerfile .
-mkdir -p keys yaap .ccache preflight
+mkdir -p keys yaap kp5 out-6.12 .ccache preflight
 # Generate AOSP releasekey, platform, shared, media, networkstack,
 # nfc, bluetooth, sdk_sandbox, avb.pem, and APEX key pairs inside ./keys/
 ```
 
-### 2. Sync sources, hydrate Git LFS, verify inputs, and apply patches
+Sync YAAP 17 sources (`manifest/houji.xml`), hydrate Git LFS, run `verify-preflight.py`, `/workspace/apply-patches.sh`, and build `lunch yaap_houji-cp2a-user && m yaap out/target/product/houji/module-info.json` inside `localhost/houji-aosp-builder:ubuntu24.04` (keeping `kernel_xiaomi_houji` for userspace UAPI headers during the ROM build).
+
+### 2. Sync `KERNEL.PLATFORM.5.0`, build purified GKI 2.0 `6.12.81` + OOT `.ko` & DTBs
 
 ```bash
-podman run --rm -it --userns=keep-id --pids-limit=-1 --ulimit nofile=65536:65536 \
-  -v "$PWD:/workspace" localhost/houji-aosp-builder:ubuntu24.04 bash -lc '
-    cd /workspace/yaap
-    repo init -u https://github.com/yaap/manifest.git -b seventeen --git-lfs
-    mkdir -p .repo/local_manifests
-    cp /workspace/manifest/houji.xml .repo/local_manifests/houji.xml
-    repo sync -c -j8 --force-sync --no-clone-bundle --no-tags
-    repo forall vendor/xiaomi/houji vendor/xiaomi/sm8650-common vendor/microg \
-      -c "git lfs install --local --skip-repo && git lfs pull && git lfs checkout"
-    python3 -B /workspace/verify-preflight.py /workspace/yaap > /workspace/preflight/SYNCED_SOURCE_VERIFICATION.json
-    /workspace/apply-patches.sh /workspace/yaap
-  '
-python3 -B ./kernel/build-kernel-6.1.py ./yaap
+# Sync KP5 (first run only: pass --sync-kp5), verify common/ 0 dirty, apply soc-repo patches,
+# compile 322 vendor .ko + 54 GKI system_dlkm + Image, and audit all ELF KMI CRCs:
+python3 -B ./kernel/build-kernel-6.12.py --sync-kp5 --kp5-dir ./kp5 --staged-dir ./out-6.12/staged-modules
+
+# Build & verify 6.12 base DTBs + houji DTBO overlays:
+python3 -B ./kernel/devicetree-houji/build_dt.py --kp5-dir ./kp5 --yaap-dir ./yaap
+python3 -B ./kernel/devicetree-houji/audit_dt.py --yaap-dir ./yaap
 ```
 
-### 3. Build signed `user` OTA (`release-keys`)
+### 3. Assemble 6.12 kernel/DLKM images & run all 5 verification gates
 
 ```bash
-podman run --rm -it --userns=keep-id --pids-limit=-1 --ulimit nofile=65536:65536 \
-  -v "$PWD:/workspace" \
-  -v "$PWD/.ccache:/ccache" \
-  -v "$PWD/keys:/workspace/yaap/vendor/yaap/signing/keys:ro" \
-  localhost/houji-aosp-builder:ubuntu24.04 bash -lc '
-    cd /workspace/yaap
-    repo manifest -r > /workspace/preflight/FINAL_BUILD_MANIFEST.xml
-    export USE_CCACHE=1 CCACHE_EXEC=/usr/bin/ccache CCACHE_DIR=/ccache
-    source build/envsetup.sh
-    lunch yaap_houji-cp2a-user
-    m yaap out/target/product/houji/module-info.json
-  '
+podman build -t localhost/houji-qemu-test:latest -f kernel/qemu/Containerfile kernel/qemu
+python3 -B ./kernel/assemble-images-6.12.py \
+  --mode staged \
+  --yaap-dir ./yaap \
+  --kp5-dir ./kp5 \
+  --staged-dir ./out-6.12/staged-modules \
+  --dt-dir ./kernel/devicetree-houji/out \
+  --keys-dir ./keys \
+  --out-dir ./out-6.12/images
 ```
 
-### 4. Audit, package `dist/`, and flash
-
-Download official Linux `platform-tools_r37.0.3-linux.zip` into `preflight/`, audit and bundle `dist/`, then verify and install:
-
-```bash
-OTA_ZIP=$(ls -1 yaap/out/target/product/houji/YAAP-17-*houji*.zip | tail -n 1)
-python3 -B ./verify-release.py \
-  --rom-dir yaap \
-  --product-out yaap/out/target/product/houji \
-  --host-bin yaap/out/host/linux-x86/bin \
-  --source-json preflight/SYNCED_SOURCE_VERIFICATION.json \
-  --manifest-file preflight/FINAL_BUILD_MANIFEST.xml \
-  --ota "$OTA_ZIP" \
-  --target-files yaap/out/target/product/houji/obj/PACKAGING/target_files_intermediates/yaap_houji-target_files \
-  --ota-cert keys/releasekey.x509.pem \
-  --avb-key keys/avb.pem \
-  --keys-dir keys \
-  --work-dir preflight/release-audit-work \
-  --output preflight/FINAL_VERIFICATION.json
-
-python3 -B ./package-release.py \
-  --product-out yaap/out/target/product/houji \
-  --images-dir preflight/release-audit-work/payload \
-  --verification preflight/FINAL_VERIFICATION.json \
-  --platform-tools preflight/platform-tools_r37.0.3-linux.zip \
-  --flash-script ./flash.sh \
-  --dist ./dist
-
-rm -rf preflight/release-audit-work
-./dist/flash.sh verify
-./dist/flash.sh flash
-# In Recovery: Factory reset -> Format data / factory reset -> Apply update -> Apply from ADB
-./dist/flash.sh sideload
-```
+Check `./out-6.12/images/ASSEMBLY_VERIFICATION.json` (`status == "PASS"` across AVB chain, VINTF, stage-1 closure, KMI/vermagic, and QEMU ARM64 `kCFI`), then flash the assembled physical/logical images alongside the audited YAAP 17 `dist/` release onto an unlocked device on matching HyperOS 3 (`OS3.0.x`) firmware (`./dist/flash.sh flash` / `sideload`, plus updating `boot`, `dtbo`, `vendor_boot`, `recovery`, `system_dlkm`, `vendor_dlkm`, `vbmeta*` from `./out-6.12/images/`).
 
 > **Linux Host Tip (ASMedia ASM4242 USB4 controllers):** Prefer a native SoC USB-A/USB-C port if ADB disconnects mid-transfer during `adb sideload`.

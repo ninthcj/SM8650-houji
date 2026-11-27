@@ -1,0 +1,12 @@
+3b70e9cddf8e3118f23b128eaac83a2cdcc53f8fd2f648aa9259630cd0fb71f4  ./0001-houji-sm8650-soc-repo-purified-6.12.patch
+ad35e5bbcb1b7abd8c8258b20458bd3c1b5bf4d57bbeeed84a6f5b8050b1e91b  ./README.md
+7f89fb96eebc7fa869616238c49adf71f4ef9c3ad32a1f6b6e4bb51c7eeda4bf  ./untracked/configs/pineapple_consolidate.bzl
+007522a53584a9077bd8dc40bc2d105b58421f27eb2ba0d214786cc3d8a2feee  ./untracked/configs/pineapple_perf.bzl
+481ee03d55b77cdbb95f735da90486a14ab25ed63bbf30b99db462a7ba9c24d0  ./untracked/drivers/soc/qcom/gh_cpusys_vm_mem_access.c
+79a92d73f5a86a00fc89a8ceb11b34fd48750be41f5f2a52347168e89b6fd587  ./untracked/drivers/soc/qcom/system_health_monitor.c
+4d02b00ba321fa64cb88bedbf46b92886e60541871d423e084549f3a83b1b7fd  ./untracked/drivers/soc/qcom/system_health_monitor_v01.c
+2bfd3bb0a756574176c7635329b2e8436f7a2d22a654e6f588882f09f7e41767  ./untracked/drivers/soc/qcom/system_health_monitor_v01.h
+31142862eeac637556df704a0887dd9c70f164a71e29745ee7c27dad0d408a58  ./untracked/drivers/soc/qcom/tmecom/tmecom.c
+d1682421c2dbba40c2f822616229f9d92097cb941d022737dc8c989ff8e89580  ./untracked/drivers/soc/qcom/tmecom/tmecom.h
+8340b14b32c3ab2e6232b2d389fe736fd05630be161b5046bd49e4b2d9a9965a  ./untracked/drivers/thermal/qcom/gpu_dump_skip_cdev.c
+27f25370bed83c992f7001ee0b37c81e30e71c394713832212428d2ae9a212de  ./untracked/kleaf-scripts/targets/pineapple.bzl
