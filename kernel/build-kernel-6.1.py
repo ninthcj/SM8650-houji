@@ -22,7 +22,7 @@ CLANG_URL = (
     "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/"
     f"+archive/refs/heads/android14-release/clang-{CLANG_VERSION}.tar.gz"
 )
-DEFAULT_PATCH = Path(__file__).resolve().parent / "patches/gki_common/0001-Revert-drm-Add-valid-clones-check.patch"
+DEFAULT_PATCH = Path(__file__).resolve().parent / "patches/0001-Revert-drm-Add-valid-clones-check.patch"
 DEFAULT_CONTAINER = "localhost/houji-aosp-builder:ubuntu24.04"
 # Unused system_dlkm modules on Xiaomi 14 (houji): MediaTek hypervisor, runtime header archive,
 # and unused socket families (AF_CAN, AF_IEEE802154/6LoWPAN) that expand Ring-0 attack surface.
@@ -151,7 +151,7 @@ def ensure_clang(toolchain_dir: Path) -> None:
     toolchain_dir.mkdir(parents=True, exist_ok=True)
     archive = toolchain_dir.parent / f"clang-{CLANG_VERSION}.tar.gz"
     print(f"Downloading {CLANG_URL} ...", flush=True)
-    req = urllib.request.Request(CLANG_URL, headers={"User-Agent": "yaap-houji-gki-builder"})
+    req = urllib.request.Request(CLANG_URL, headers={"User-Agent": "sm8650-houji-gki-builder"})
     with urllib.request.urlopen(req, timeout=300) as resp, archive.open("wb") as out:
         shutil.copyfileobj(resp, out)
     with tarfile.open(archive, "r:gz") as tf:
@@ -171,8 +171,8 @@ def ensure_patched_source(common_dir: Path, patch_path: Path) -> None:
     run(
         [
             "git",
-            "-c", "user.name=yaap-houji",
-            "-c", "user.email=build@yaap-houji.local",
+            "-c", "user.name=sm8650-houji",
+            "-c", "user.email=build@sm8650-houji.local",
             "am", "--3way", str(patch_path),
         ],
         cwd=common_dir,

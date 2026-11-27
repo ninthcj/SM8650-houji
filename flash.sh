@@ -30,7 +30,11 @@ readonly FASTBOOT="$ROOT/platform-tools/fastboot"
 readonly IMG_DIR="$ROOT/images"
 readonly SUMS="$ROOT/SHA256SUMS"
 readonly VERIFICATION="$ROOT/BUILD_VERIFICATION.json"
-readonly STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/yaap-houji-flash"
+if [[ -d "${XDG_STATE_HOME:-$HOME/.local/state}/yaap-houji-flash" && ! -d "${XDG_STATE_HOME:-$HOME/.local/state}/sm8650-houji-flash" ]]; then
+    readonly STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/yaap-houji-flash"
+else
+    readonly STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/sm8650-houji-flash"
+fi
 
 # --- Supported identity ----------------------------------------------------------------
 # libinit_xiaomi_8650.cpp normalizes the India SKU alias houjiin to houji; both are the
@@ -138,7 +142,7 @@ Recovery paths
     bundle).
   * Sideload failed or interrupted: reboot to recovery, Apply from ADB, rerun
     `./flash.sh sideload`. Progress lives in
-    ${XDG_STATE_HOME:-~/.local/state}/yaap-houji-flash/<serial>.state
+    ${XDG_STATE_HOME:-~/.local/state}/sm8650-houji-flash/<serial>.state
 EOF
 }
 
