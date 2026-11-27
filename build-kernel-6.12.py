@@ -24,7 +24,7 @@ import sys
 import tarfile
 
 KERNEL_DIR = Path(__file__).resolve().parent
-REPO_ROOT = KERNEL_DIR.parent
+REPO_ROOT = KERNEL_DIR
 
 EXPECTED_COMMON_COMMIT = "8fc057fab7569433e990d11a2362ccb84f7b301d"
 EXPECTED_SOC_BASE_COMMIT = "d08fc445800a9ed9466ffed45620a3e69cb43e36"
@@ -471,8 +471,12 @@ def stage_and_verify(kp5_dir: Path, staged_dir: Path) -> int:
 
 
 def main() -> int:
+    default_kp5 = REPO_ROOT / "kernel-6.12/kp5"
+    if not default_kp5.is_dir():
+        default_kp5 = REPO_ROOT / "kp5"
+
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--kp5-dir", type=Path, default=REPO_ROOT / "kp5", help="KP5 workspace root")
+    parser.add_argument("--kp5-dir", type=Path, default=default_kp5, help="KP5 workspace root")
     parser.add_argument("--staged-dir", type=Path, default=REPO_ROOT / "out-6.12/staged-modules", help="Staged output dir")
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 8, help="Parallel Bazel/repo jobs")
     parser.add_argument("--sync-kp5", action="store_true", help="Sync KERNEL.PLATFORM.5.0 via repo before building")

@@ -17,7 +17,8 @@ import sys
 import tempfile
 
 HERE = Path(__file__).resolve().parent
-REPO_ROOT = HERE.parent.parent
+REPO_ROOT = HERE.parent
+PROJECT_ROOT = REPO_ROOT.parent
 
 FDT_BEGIN_NODE = 1
 FDT_END_NODE = 2
@@ -250,10 +251,20 @@ def find_ufdt(explicit: Path | None, yaap_dir: Path, kp5_dir: Path) -> Path:
     raise FileNotFoundError("Could not locate ufdt_apply_overlay (pass --ufdt or sync yaap/kp5)")
 
 
+def _default_dir(*candidates: Path) -> Path:
+    for cand in candidates:
+        if cand.is_dir():
+            return cand
+    return candidates[0]
+
+
 def main() -> int:
+    default_rom = _default_dir(PROJECT_ROOT / "yaap-houji/yaap", PROJECT_ROOT / "yaap", REPO_ROOT / "yaap")
+    default_kp5 = _default_dir(REPO_ROOT / "kernel-6.12/kp5", REPO_ROOT / "kp5", PROJECT_ROOT / "kp5")
+
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--yaap-dir", type=Path, default=REPO_ROOT / "yaap", help="YAAP repo root")
-    parser.add_argument("--kp5-dir", type=Path, default=REPO_ROOT / "kp5", help="KP5 workspace root")
+    parser.add_argument("--rom-dir", "--yaap-dir", dest="yaap_dir", type=Path, default=default_rom, help="Android ROM repo root")
+    parser.add_argument("--kp5-dir", type=Path, default=default_kp5, help="KP5 workspace root")
     parser.add_argument("--stock-dir", type=Path, help="Stock kernel dir (defaults to <yaap>/vendor/xiaomi/houji/kernel/stock)")
     parser.add_argument("--dt-out", type=Path, default=HERE / "out", help="Built DT output dir")
     parser.add_argument("--ufdt", type=Path, help="Path to ufdt_apply_overlay")

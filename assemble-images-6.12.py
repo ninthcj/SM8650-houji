@@ -19,7 +19,8 @@ import tarfile
 import uuid
 
 KERNEL_DIR = Path(__file__).resolve().parent
-REPO_ROOT = KERNEL_DIR.parent
+REPO_ROOT = KERNEL_DIR
+PROJECT_ROOT = REPO_ROOT.parent
 QEMU_IMAGE = "localhost/houji-qemu-test:latest"
 QEMU_INIT_SRC = KERNEL_DIR / "qemu/init_modtest.c"
 MODULE_MAP_PATH = KERNEL_DIR / "xiaomi-modules/MODULE_MAP.json"
@@ -864,20 +865,71 @@ timeout 180 qemu-system-aarch64 \
     }
 
 
+def _default_rom_dir() -> Path:
+    for cand in (PROJECT_ROOT / "yaap-houji/yaap", PROJECT_ROOT / "yaap", REPO_ROOT / "yaap"):
+        if cand.is_dir():
+            return cand
+    return PROJECT_ROOT / "rom"
+
+
+def _default_kp5_dir() -> Path:
+    for cand in (REPO_ROOT / "kernel-6.12/kp5", REPO_ROOT / "kp5", PROJECT_ROOT / "kp5"):
+        if cand.is_dir():
+            return cand
+    return REPO_ROOT / "kp5"
+
+
+def _default_keys_dir() -> Path:
+    for cand in (PROJECT_ROOT / "keys", REPO_ROOT / "keys"):
+        if cand.is_dir():
+            return cand
+    return PROJECT_ROOT / "keys"
+
+
+def _discover_target_files_dir(rom_dir: Path) -> Path:
+    inter = rom_dir / "out/target/product/houji/obj/PACKAGING/target_files_intermediates"
+    preferred = inter / "yaap_houji-target_files"
+    if preferred.is_dir():
+        return preferred
+    if inter.is_dir():
+        matches = sorted(p for p in inter.glob("*_houji-target_files") if p.is_dir())
+        if matches:
+            return matches[0]
+    return preferred
+
+
+def _detect_fingerprint(target_files_dir: Path) -> str:
+    for rel in ("VENDOR/build.prop", "SYSTEM/build.prop"):
+        prop = target_files_dir / rel
+        if not prop.is_file():
+            continue
+        for key in ("ro.vendor.build.fingerprint", "ro.system.build.fingerprint", "ro.build.fingerprint"):
+            prefix = f"{key}="
+            for line in prop.read_text(errors="replace").splitlines():
+                if line.startswith(prefix):
+                    val = line[len(prefix):].strip()
+                    if val:
+                        return val
+    return DEFAULT_FINGERPRINT
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=["auto", "staged", "dry-run"], default="staged")
     parser.add_argument("--skip-qemu", action="store_true", help="Skip live QEMU smoke test")
-    parser.add_argument("--yaap-dir", type=Path, default=REPO_ROOT / "yaap", help="YAAP repo root")
-    parser.add_argument("--kp5-dir", type=Path, default=REPO_ROOT / "kp5", help="KP5 workspace root")
+    parser.add_argument(
+        "--rom-dir", "--yaap-dir", dest="yaap_dir", type=Path, default=_default_rom_dir(),
+        help="Synced Android ROM build root (YAAP, LineageOS, AOSP, etc.)",
+    )
+    parser.add_argument("--kp5-dir", type=Path, default=_default_kp5_dir(), help="KP5 workspace root")
     parser.add_argument("--staged-dir", type=Path, default=REPO_ROOT / "out-6.12/staged-modules", help="Staged 6.12 artifacts dir")
     parser.add_argument("--dt-dir", type=Path, default=KERNEL_DIR / "devicetree-houji/out", help="Built DT output dir")
-    parser.add_argument("--keys-dir", type=Path, default=REPO_ROOT / "keys", help="Signing keys dir containing avb.pem")
-    parser.add_argument("--target-files", type=Path, help="Extracted YAAP target_files intermediate dir")
+    parser.add_argument("--keys-dir", type=Path, default=_default_keys_dir(), help="Signing keys dir containing avb.pem")
+    parser.add_argument("--target-files", type=Path, help="Extracted Android target_files intermediate dir")
     parser.add_argument("--template-dir", type=Path, help="Dir containing baseline vendor_boot/recovery/system_dlkm/vendor_dlkm images")
     parser.add_argument("--out-dir", type=Path, default=REPO_ROOT / "out-6.12/images", help="Output images dir")
     parser.add_argument("--work-dir", type=Path, default=REPO_ROOT / "out-6.12/work", help="Scratch work dir")
-    parser.add_argument("--fingerprint", default=DEFAULT_FINGERPRINT, help="Build fingerprint embedded in AVB properties")
+    parser.add_argument("--fingerprint", default=None, help="Build fingerprint embedded in AVB properties (auto-detected from target_files)")
     args = parser.parse_args()
 
     yaap_dir = args.yaap_dir.resolve()
@@ -887,8 +939,9 @@ def main() -> int:
     keys_dir = args.keys_dir.resolve()
     target_files_dir = (
         args.target_files
-        or (yaap_dir / "out/target/product/houji/obj/PACKAGING/target_files_intermediates/yaap_houji-target_files")
+        or _discover_target_files_dir(yaap_dir)
     ).resolve()
+    args.fingerprint = args.fingerprint or _detect_fingerprint(target_files_dir)
     template_dir = (args.template_dir or (target_files_dir / "IMAGES")).resolve()
     out_images_dir = args.out_dir.resolve()
     work_dir = args.work_dir.resolve()

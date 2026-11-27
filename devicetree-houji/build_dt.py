@@ -20,7 +20,8 @@ import sys
 
 HERE = Path(__file__).resolve().parent
 KERNEL_DIR = HERE.parent
-REPO_ROOT = KERNEL_DIR.parent
+REPO_ROOT = KERNEL_DIR
+PROJECT_ROOT = REPO_ROOT.parent
 SRC_QCOM = HERE / "src" / "qcom"
 
 # Base DTB order matches factory stock.dtb: [0] v2, [1] v1, [2] p-v2, [3] p-v1
@@ -191,10 +192,20 @@ def build_soc_techpack_inc(rel_dts: str, inc_dir: Path) -> Path:
     return out_inc
 
 
+def _default_dir(*candidates: Path) -> Path:
+    for cand in candidates:
+        if cand.is_dir():
+            return cand
+    return candidates[0]
+
+
 def main() -> int:
+    default_kp5 = _default_dir(REPO_ROOT / "kernel-6.12/kp5", REPO_ROOT / "kp5", PROJECT_ROOT / "kp5")
+    default_rom = _default_dir(PROJECT_ROOT / "yaap-houji/yaap", PROJECT_ROOT / "yaap", REPO_ROOT / "yaap")
+
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--kp5-dir", type=Path, default=REPO_ROOT / "kp5", help="KP5 kernel_platform workspace root")
-    parser.add_argument("--yaap-dir", type=Path, default=REPO_ROOT / "yaap", help="YAAP repo root")
+    parser.add_argument("--kp5-dir", type=Path, default=default_kp5, help="KP5 kernel_platform workspace root")
+    parser.add_argument("--rom-dir", "--yaap-dir", dest="yaap_dir", type=Path, default=default_rom, help="Android ROM root for host tools / stock DT reference")
     parser.add_argument("--out-dir", type=Path, default=HERE / "out", help="Output directory for dtb.img / dtbo.img")
     parser.add_argument("--dtc", type=Path, help="Path to dtc binary supporting -@")
     parser.add_argument("--ufdt", type=Path, help="Path to ufdt_apply_overlay binary")
