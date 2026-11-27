@@ -181,8 +181,8 @@ def ensure_patched_source(common_dir: Path, patch_path: Path) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("yaap_dir", type=Path, help="Path to the synced YAAP repo root")
-    parser.add_argument("--work-dir", type=Path, help="Kernel build/cache workspace (default: <yaap_dir>/../.kernel-build)")
+    parser.add_argument("yaap_dir", metavar="rom_dir", type=Path, help="Path to synced Android ROM tree root, e.g. ../yaap-houji/yaap")
+    parser.add_argument("--work-dir", type=Path, help="Kernel build/cache workspace (default: ./.kernel-build)")
     parser.add_argument("--patch", type=Path, default=DEFAULT_PATCH, help="DRM clone-check revert patch path")
     parser.add_argument("--container", default=DEFAULT_CONTAINER, help="Podman builder image (pass '' for host build)")
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 8, help="Parallel make jobs")
@@ -197,7 +197,7 @@ def main() -> int:
     if not (kbt_dir / "bin/pahole").is_file():
         raise FileNotFoundError(f"Missing kernel-build-tools pahole under {kbt_dir}")
 
-    work_dir = (args.work_dir or (yaap.parent / ".kernel-build")).resolve()
+    work_dir = (args.work_dir or (Path(__file__).resolve().parent / ".kernel-build")).resolve()
     common_dir = work_dir / "common"
     toolchain_dir = work_dir / "toolchain"
     out_build = work_dir / "out"
