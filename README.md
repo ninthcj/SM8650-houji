@@ -1,6 +1,6 @@
 # SM8650-houji
 
-**ROM-agnostic** pure **GKI 2.0** (`6.12` & `6.1` LTS) kernel builders and out-of-tree DDK / DT stack for **Snapdragon 8 Gen 3 (`SM8650` / `pineapple`, Xiaomi 14 `houji` / `houjiin`)**.
+**ROM-agnostic** pure **GKI 2.0** (`6.18`, `6.12`, & `6.1` LTS) kernel builders and out-of-tree DDK / DT stack for **Snapdragon 8 Gen 3 (`SM8650` / `pineapple`, Xiaomi 14 `houji` / `houjiin`)**.
 
 > **Decoupled from Userspace ROM:** This repository contains **zero ROM patches or AOSP manifests** and can be paired with **any** compatible Android ROM tree. For the reference **YAAP 17** BYOF ROM adaptation, auditor, and installer, see **[`ninthcj/yaap-houji`](https://github.com/ninthcj/yaap-houji)**.
 
@@ -8,7 +8,8 @@
 
 | Branch | Kernel Baseline | Vendor Modules & DT | Status |
 | :--- | :--- | :--- | :--- |
-| **[`6.12`](../../tree/6.12)** *(Default)* | Pure **GKI 2.0 Linux `6.12.81`** (`android16-6.12`, `0` patches to `kernel/common`) | Full out-of-tree DDK sources (`322` purified `.ko` + `54` `system_dlkm`, single-pass `6.12` DT/DTBO, 5-gate + QEMU `kCFI`) | Active mainline |
+| **[`6.18`](../../tree/6.18)** *(Default)* | Pure **GKI 2.0 Linux `6.18.39`** (`android17-6.18`, `0` patches to `kernel/common`) | Full out-of-tree DDK sources (`320` purified `.ko` + `49` `system_dlkm`, `sched-walt.ko`, single-pass `6.18` DT/DTBO, 5-gate + QEMU `kCFI`) | Active mainline |
+| **[`6.12`](../../tree/6.12)** | Pure **GKI 2.0 Linux `6.12.81`** (`android16-6.12`, `0` patches to `kernel/common`) | Full out-of-tree DDK sources (`322` purified `.ko` + `54` `system_dlkm`, single-pass `6.12` DT/DTBO, 5-gate + QEMU `kCFI`) | Verified stable |
 | **[`6.1`](../../tree/6.1)** *(This branch)* | **`android14-6.1` LTS (`6.1.182`)** (single DRM CWB clone-check revert) | Stock `OS3.0.307.0` vendor DLKM (`654` `.ko`, `39,140` KMI CRCs verified) | Maintained LTS |
 
 > **Note:** Personal engineering repository shared **as-is** (`rootless`, FOSS-first). **Never relock your bootloader** when running custom-signed builds on Xiaomi hardware.
@@ -28,7 +29,7 @@
 ## Reproducing the Build (`6.1` LTS)
 
 ```bash
-# Point at any synced Android ROM tree root (e.g. ../yaap-houji/yaap):
+# Point at any synced Android ROM tree root (pass --container "" to build directly on host without Podman):
 python3 -B ./build-kernel-6.1.py ../yaap-houji/yaap
 ```
 
