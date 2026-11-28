@@ -237,6 +237,22 @@ def build_kleaf(kp5_dir: Path, jobs: int) -> None:
         ],
         cwd=kp,
     )
+    run(
+        [
+            str(kp / "tools/bazel"),
+            *common_flags,
+            "run",
+            f"--jobs={jobs}",
+            "--config=stamp",
+            "--incompatible_sandbox_hermetic_tmp=false",
+            "--symlink_prefix=/",
+            *override_flags,
+            "//soc-repo:pineapple_perf_dist",
+            "--",
+            f"--dist_dir={kp / 'out/msm-kernel-pineapple-perf/dist'}",
+        ],
+        cwd=kp,
+    )
 
 
 def parse_elf64_ko(path: Path) -> dict:

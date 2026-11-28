@@ -97,9 +97,11 @@ def ensure_fdtoverlaymerge(explicit: Path | None, kp5_dir: Path, yaap_dir: Path,
         if src_c.is_file() and util_c.is_file() and libfdt_dir.is_dir():
             built = work_dir / "fdtoverlaymerge"
             built.parent.mkdir(parents=True, exist_ok=True)
-            fdt_srcs = sorted(libfdt_dir.glob("*.c"))
+            (work_dir / "version_gen.h").write_text('#define DTC_VERSION "DTC 1.7.0"\n')
+            fdt_srcs = [s for s in sorted(libfdt_dir.glob("*.c")) if s.name != "acpi.c"]
             cmd = [
-                "cc", "-O2", f"-I{src_root}", f"-I{libfdt_dir}",
+                "cc", "-O2", "-DNO_YAML",
+                f"-I{work_dir}", f"-I{src_root}", f"-I{libfdt_dir}",
                 str(src_c), str(util_c), *[str(s) for s in fdt_srcs],
                 "-o", str(built),
             ]
