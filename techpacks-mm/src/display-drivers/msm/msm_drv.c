@@ -151,7 +151,7 @@ static void msm_drm_display_thread_priority_worker(struct kthread_work *work)
  * RETURNS
  * Zero for success or -errorno.
  */
-int msm_atomic_check(struct drm_device *dev,
+static int msm_atomic_check(struct drm_device *dev,
 			    struct drm_atomic_state *state)
 {
 	struct msm_drm_private *priv;
@@ -635,7 +635,7 @@ static int msm_init_vram(struct drm_device *dev)
 		 * Grab the entire CMA chunk carved out in early startup in
 		 * mach-msm:
 		 */
-	} else if (!iommu_present(&platform_bus_type)) {
+	} else if (!msm_smmu_is_mapped()) {
 		u32 vram_size;
 
 		ret = of_property_read_u32(dev->dev->of_node,
@@ -925,6 +925,7 @@ static int msm_drm_component_init(struct device *dev)
 	INIT_LIST_HEAD(&priv->vm_client_list);
 	INIT_LIST_HEAD(&priv->fence_error_client_list);
 	mutex_init(&priv->mm_lock);
+	mutex_init(&priv->struct_mutex);
 
 	mutex_init(&priv->vm_client_lock);
 	mutex_init(&priv->fence_error_client_lock);
@@ -1134,10 +1135,10 @@ static void msm_postclose(struct drm_device *dev, struct drm_file *file)
 	if (kms->funcs && kms->funcs->postclose)
 		kms->funcs->postclose(kms, file);
 
-	mutex_lock(&dev->struct_mutex);
+	mutex_lock(&priv->struct_mutex);
 	if (ctx == priv->lastctx)
 		priv->lastctx = NULL;
-	mutex_unlock(&dev->struct_mutex);
+	mutex_unlock(&priv->struct_mutex);
 
 	mutex_lock(&ctx->power_lock);
 	if (ctx->enable_refcnt) {
@@ -1188,7 +1189,7 @@ static void msm_lastclose(struct drm_device *dev)
 		struct drm_vblank_crtc *vblank = &dev->vblank[i];
 		struct timer_list *disable_timer = &vblank->disable_timer;
 
-		if (del_timer_sync(disable_timer))
+		if (timer_delete_sync(disable_timer))
 			disable_timer->function(disable_timer);
 	}
 
@@ -1293,6 +1294,7 @@ static int msm_ioctl_gem_cpu_fini(struct drm_device *dev, void *data,
 static int msm_ioctl_gem_madvise(struct drm_device *dev, void *data,
 		struct drm_file *file)
 {
+	struct msm_drm_private *priv = dev->dev_private;
 	struct drm_msm_gem_madvise *args = data;
 	struct drm_gem_object *obj;
 	int ret;
@@ -1305,7 +1307,7 @@ static int msm_ioctl_gem_madvise(struct drm_device *dev, void *data,
 		return -EINVAL;
 	}
 
-	ret = mutex_lock_interruptible(&dev->struct_mutex);
+	ret = mutex_lock_interruptible(&priv->struct_mutex);
 	if (ret)
 		return ret;
 
@@ -1324,7 +1326,7 @@ static int msm_ioctl_gem_madvise(struct drm_device *dev, void *data,
 	drm_gem_object_put(obj);
 
 unlock:
-	mutex_unlock(&dev->struct_mutex);
+	mutex_unlock(&priv->struct_mutex);
 	return ret;
 }
 
@@ -1697,7 +1699,7 @@ EXPORT_SYMBOL(msm_ioctl_rmfb2);
  * @file_priv: drm file for the ioctl call
  *
  */
-int msm_ioctl_power_ctrl(struct drm_device *dev, void *data,
+static int msm_ioctl_power_ctrl(struct drm_device *dev, void *data,
 			struct drm_file *file_priv)
 {
 	struct msm_file_private *ctx = file_priv->driver_priv;
@@ -1757,7 +1759,7 @@ int msm_ioctl_power_ctrl(struct drm_device *dev, void *data,
  * @file_priv: drm file for the ioctl call
  *
  */
-int msm_ioctl_display_hint_ops(struct drm_device *dev, void *data,
+static int msm_ioctl_display_hint_ops(struct drm_device *dev, void *data,
 			struct drm_file *file_priv)
 {
 	struct drm_msm_display_hint *display_hint = data;
@@ -1874,7 +1876,6 @@ static struct drm_driver msm_driver = {
 	.fops               = &fops,
 	.name               = "msm_drm",
 	.desc               = "MSM Snapdragon DRM",
-	.date               = "20130625",
 	.major              = MSM_VERSION_MAJOR,
 	.minor              = MSM_VERSION_MINOR,
 	.patchlevel         = MSM_VERSION_PATCHLEVEL,
@@ -2103,7 +2104,7 @@ static int add_components_mdp(struct device *mdp_dev,
 	return 0;
 }
 
-static int compare_name_mdp(struct device *dev, void *data)
+static int compare_name_mdp(struct device *dev, const void *data)
 {
 	return (strnstr(dev_name(dev), "mdp", strlen("mdp")) != NULL);
 }
@@ -2235,7 +2236,7 @@ msm_gem_smmu_address_space_get(struct drm_device *dev,
 	const struct msm_kms_funcs *funcs;
 	struct msm_gem_address_space *aspace;
 
-	if (!iommu_present(&platform_bus_type))
+	if (!msm_smmu_is_mapped())
 		return ERR_PTR(-ENODEV);
 
 	if ((!dev) || (!dev->dev_private))

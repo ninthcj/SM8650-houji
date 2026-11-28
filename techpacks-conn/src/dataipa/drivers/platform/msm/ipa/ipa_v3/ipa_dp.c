@@ -1124,7 +1124,7 @@ static int ipa3_handle_rx_core(struct ipa3_sys_context *sys, bool process_all,
  * In RSC/RSB enabled cases using common event ring, so both the pipe
  * polling state should be in sync.
  */
-void __ipa3_update_curr_poll_state(enum ipa_client_type client, int state)
+static void __ipa3_update_curr_poll_state(enum ipa_client_type client, int state)
 {
 	int ep_idx = IPA_EP_NOT_ALLOCATED;
 
@@ -1267,7 +1267,7 @@ static void ipa3_switch_to_intr_rx_work_func(struct work_struct *work)
 		ipa3_handle_rx(sys);
 }
 
-enum hrtimer_restart ipa3_ring_doorbell_timer_fn(struct hrtimer *param)
+static enum hrtimer_restart ipa3_ring_doorbell_timer_fn(struct hrtimer *param)
 {
 	struct ipa3_sys_context *sys = container_of(param,
 		struct ipa3_sys_context, db_timer);
@@ -1567,9 +1567,9 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		INIT_LIST_HEAD(&ep->sys->avail_tx_wrapper_list);
 		ep->sys->avail_tx_wrapper = 0;
 		spin_lock_init(&ep->sys->spinlock);
-		hrtimer_init(&ep->sys->db_timer, CLOCK_MONOTONIC,
-			HRTIMER_MODE_REL);
-		ep->sys->db_timer.function = ipa3_ring_doorbell_timer_fn;
+		hrtimer_setup(&ep->sys->db_timer,
+			ipa3_ring_doorbell_timer_fn,
+			CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 
 		/* create IPA PM resources for handling polling mode */
 		if (sys_in->client == IPA_CLIENT_APPS_WAN_CONS &&
@@ -1645,18 +1645,24 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 #else
 			dummy_ndev = ipa3_ctx->generic_ndev;
 #endif
+			if (dummy_ndev) {
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(6, 0, 14))
-			netif_napi_add_tx_weight(dummy_ndev,
-			&ep->sys->napi_tx, tx_completion_func,
-			NAPI_TX_WEIGHT);
+				netif_napi_add_tx_weight(dummy_ndev,
+				&ep->sys->napi_tx, tx_completion_func,
+				NAPI_TX_WEIGHT);
 #else
-			netif_tx_napi_add(dummy_ndev,
-			&ep->sys->napi_tx, tx_completion_func,
-			NAPI_TX_WEIGHT);
+				netif_tx_napi_add(dummy_ndev,
+				&ep->sys->napi_tx, tx_completion_func,
+				NAPI_TX_WEIGHT);
 
 #endif
-			ep->sys->napi_tx_enable = ipa3_ctx->tx_napi_enable;
-			ep->sys->tx_poll = ipa3_ctx->tx_poll;
+				ep->sys->napi_tx_enable = ipa3_ctx->tx_napi_enable;
+				ep->sys->tx_poll = ipa3_ctx->tx_poll;
+			} else {
+				IPAERR("dummy_ndev NULL, disable LAN tx NAPI\n");
+				ep->sys->tx_poll = false;
+				ep->sys->napi_tx_enable = false;
+			}
 		} else if(sys_in->client == IPA_CLIENT_APPS_WAN_PROD ||
 			sys_in->client == IPA_CLIENT_APPS_WAN_LOW_LAT_DATA_PROD) {
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(6, 0, 14))
@@ -1981,7 +1987,7 @@ fail_napi:
 		netif_napi_del(&ep->sys->napi_rx);
 	}
 	/* Delete NAPI TX object. */
-	if (ipa3_ctx->tx_napi_enable &&
+	if (ep->sys->napi_tx_enable &&
 		(IPA_CLIENT_IS_PROD(sys_in->client)))
 		netif_napi_del(&ep->sys->napi_tx);
 fail_gen2:
@@ -2368,7 +2374,7 @@ static void ipa3_tx_comp_usr_notify_release(void *user1, int user2)
 		dev_kfree_skb_any(skb);
 }
 
-void ipa3_tx_cmd_comp(void *user1, int user2)
+static __maybe_unused void ipa3_tx_cmd_comp(void *user1, int user2)
 {
 	ipahal_destroy_imm_cmd(user1);
 }

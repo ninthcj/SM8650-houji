@@ -8,7 +8,9 @@
 #include <linux/of_platform.h>
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
+#if IS_ENABLED(CONFIG_REGMAP_QTI_DEBUGFS)
 #include <linux/qti-regmap-debugfs.h>
+#endif
 #include <linux/regmap.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
@@ -1142,7 +1144,9 @@ static int simple_amp_component_probe(struct snd_soc_component *component)
 	simple_amp->component = component;
 	snd_soc_component_init_regmap(component, simple_amp->regmap);
 
+#if IS_ENABLED(CONFIG_REGMAP_QTI_DEBUGFS)
 	devm_regmap_qti_debugfs_register(simple_amp->dev, simple_amp->regmap);
+#endif
 	return simple_amp_func_configuration(simple_amp);
 
 }
@@ -1155,7 +1159,9 @@ static void simple_amp_component_remove(struct snd_soc_component *component)
 	if (!simple_amp)
 		return;
 
+#if IS_ENABLED(CONFIG_REGMAP_QTI_DEBUGFS)
 	devm_regmap_qti_debugfs_unregister(simple_amp->regmap);
+#endif
 	snd_soc_component_exit_regmap(component);
 }
 

@@ -424,4 +424,6 @@ int mi_dsi_update_aod_cmd_n16t_PB(struct dsi_panel *panel,
 
 int mi_dsi_panel_gamma_switch_n16t_PB(struct dsi_panel *panel);
 
+int mi_dsi_panel_update_doze_cmd_locked(struct dsi_panel *panel, u8 value);
+
 #endif /* _MI_DSI_PANEL_H_ */

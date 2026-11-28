@@ -273,7 +273,7 @@ static const struct index_he_data_rate_type he_mcs_nss2[] = {
  *
  * Return: none
  */
-void wma_swap_bytes(void *pv, uint32_t n)
+static void wma_swap_bytes(void *pv, uint32_t n)
 {
 	int32_t no_words;
 	int32_t i;

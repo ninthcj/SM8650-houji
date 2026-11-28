@@ -61,6 +61,7 @@ void convert_to_drm_mode(const struct dp_display_mode *dp_mode,
 }
 
 static int dp_bridge_attach(struct drm_bridge *dp_bridge,
+				struct drm_encoder *encoder,
 				enum drm_bridge_attach_flags flags)
 {
 	struct dp_bridge *bridge = to_dp_bridge(dp_bridge);
@@ -733,7 +734,7 @@ void dp_drm_bridge_deinit(void *data)
 }
 
 enum drm_mode_status dp_connector_mode_valid(struct drm_connector *connector,
-		struct drm_display_mode *mode, void *display,
+		const struct drm_display_mode *mode, void *display,
 		const struct msm_resource_caps_info *avail_res)
 {
 	int rc = 0, vrefresh;

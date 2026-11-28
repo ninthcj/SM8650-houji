@@ -6,6 +6,8 @@
 #ifndef _GSIHAL_H_
 #define _GSIHAL_H_
 
+#include <linux/io.h>
+#include "../gsi.h"
 #include "gsihal_reg.h"
 
 int gsihal_init(enum gsi_ver gsi_ver, void __iomem *base);

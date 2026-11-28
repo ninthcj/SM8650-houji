@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """
-Deterministic Linux 6.12 Base DTB + Houji DTBO compiler & overlay verifier.
+Deterministic Linux 6.18 Base DTB + Houji DTBO compiler & overlay verifier.
 
 Builds:
-  1. All 4 SM8650 (pineapple / pineapple-v2 / pineapplep / pineapplep-v2) 6.12 base DTBs
+  1. All 4 SM8650 (pineapple / pineapple-v2 / pineapplep / pineapplep-v2) 6.18 base DTBs
      with SoC-level techpack overlays compiled single-pass (preserving child node order
      and __symbols__), plus concatenated out/dtb.img matching factory stock.dtb ordering.
   2. All 5 Xiaomi 14 (houji) board-level overlays verified individually via ufdt_apply_overlay,
      merged into houji-sm8650-merged.dtbo via fdtoverlaymerge, and packed into out/dtbo.img.
   3. End-to-end verification applying houji-sm8650-merged.dtbo onto all 4 base DTBs.
 """
+
+from __future__ import annotations
 
 import argparse
 import json
@@ -74,40 +76,45 @@ def first_existing(candidates: list[Path | str | None], name: str) -> Path:
     raise FileNotFoundError(f"Could not locate required tool '{name}'. Checked: {candidates}")
 
 
-def ensure_fdtoverlaymerge(explicit: Path | None, kp5_dir: Path, yaap_dir: Path, work_dir: Path) -> Path:
-    if explicit and explicit.is_file():
-        return explicit
-    prebuilt = kp5_dir / "kernel_platform/out/msm-kernel-pineapple-perf/host/bin/fdtoverlaymerge"
-    if prebuilt.is_file():
-        return prebuilt
-    local_tool = HERE / "tools/fdtoverlaymerge"
-    if local_tool.is_file():
-        return local_tool
-    which_hit = shutil.which("fdtoverlaymerge")
-    if which_hit:
-        return Path(which_hit)
-
+def _compile_dtc_helper(tool_name: str, kp6_dir: Path, rom_dir: Path, work_dir: Path) -> Path | None:
     for src_root in (
-        kp5_dir / "kernel_platform/external/qcom-dtc",
-        yaap_dir / "external/dtc",
+        kp6_dir / "external/qcom-dtc",
+        kp6_dir / "external/dtc",
+        rom_dir / "external/dtc",
     ):
-        src_c = src_root / "fdtoverlaymerge.c"
+        src_c = src_root / f"{tool_name}.c"
         util_c = src_root / "util.c"
         libfdt_dir = src_root / "libfdt"
         if src_c.is_file() and util_c.is_file() and libfdt_dir.is_dir():
-            built = work_dir / "fdtoverlaymerge"
+            built = work_dir / tool_name
             built.parent.mkdir(parents=True, exist_ok=True)
-            fdt_srcs = sorted(libfdt_dir.glob("*.c"))
+            (work_dir / "version_gen.h").write_text('#define DTC_VERSION "DTC 1.7.0"\n')
+            fdt_srcs = [s for s in sorted(libfdt_dir.glob("*.c")) if s.name != "acpi.c"]
             cmd = [
-                "cc", "-O2", f"-I{src_root}", f"-I{libfdt_dir}",
+                "cc", "-O2", "-DNO_YAML",
+                f"-I{work_dir}", f"-I{src_root}", f"-I{libfdt_dir}",
                 str(src_c), str(util_c), *[str(s) for s in fdt_srcs],
                 "-o", str(built),
             ]
-            run(cmd, f"compile fdtoverlaymerge from {src_root}")
+            run(cmd, f"compile {tool_name} from {src_root}")
             return built
+    return None
 
+
+def ensure_dtc_helper(tool_name: str, explicit: Path | None, prebuilts: list[Path], kp6_dir: Path, rom_dir: Path, work_dir: Path) -> Path:
+    if explicit and explicit.is_file():
+        return explicit
+    for prebuilt in prebuilts:
+        if prebuilt.is_file():
+            return prebuilt
+    which_hit = shutil.which(tool_name)
+    if which_hit:
+        return Path(which_hit)
+    built = _compile_dtc_helper(tool_name, kp6_dir, rom_dir, work_dir)
+    if built:
+        return built
     raise FileNotFoundError(
-        "Could not locate or compile fdtoverlaymerge. Pass --fdtoverlaymerge or ensure kp5/yaap external dtc sources exist."
+        f"Could not locate or compile {tool_name}. Pass --{tool_name} or sync KP6 external/qcom-dtc."
     )
 
 
@@ -200,22 +207,22 @@ def _default_dir(*candidates: Path) -> Path:
 
 
 def main() -> int:
-    default_kp5 = _default_dir(REPO_ROOT / "kernel-6.12/kp5", REPO_ROOT / "kp5", PROJECT_ROOT / "kp5")
+    default_kp6 = _default_dir(REPO_ROOT / "kernel-6.18/kp6", REPO_ROOT / "kp6", PROJECT_ROOT / "kp6")
     default_rom = _default_dir(PROJECT_ROOT / "yaap-houji/yaap", PROJECT_ROOT / "yaap", REPO_ROOT / "yaap")
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--kp5-dir", type=Path, default=default_kp5, help="KP5 kernel_platform workspace root")
-    parser.add_argument("--rom-dir", "--yaap-dir", dest="yaap_dir", type=Path, default=default_rom, help="Android ROM root for host tools / stock DT reference")
+    parser.add_argument("--kp6-dir", "--kp5-dir", dest="kp6_dir", type=Path, default=default_kp6, help="KP6 workspace root")
+    parser.add_argument("--rom-dir", "--yaap-dir", dest="rom_dir", type=Path, default=default_rom, help="Android ROM root for host tools / stock DT reference")
     parser.add_argument("--out-dir", type=Path, default=HERE / "out", help="Output directory for dtb.img / dtbo.img")
     parser.add_argument("--dtc", type=Path, help="Path to dtc binary supporting -@")
     parser.add_argument("--ufdt", type=Path, help="Path to ufdt_apply_overlay binary")
     parser.add_argument("--fdtoverlay", type=Path, help="Path to fdtoverlay binary")
     parser.add_argument("--fdtoverlaymerge", type=Path, help="Path to fdtoverlaymerge binary")
-    parser.add_argument("--mkdtboimg", type=Path, help="Path to mkdtboimg.py script")
+    parser.add_argument("--mkdtboimg", type=Path, help="Path to mkdtboimg binary or mkdtboimg.py script")
     args = parser.parse_args()
 
-    kp5_dir = args.kp5_dir.resolve()
-    yaap_dir = args.yaap_dir.resolve()
+    kp6_dir = args.kp6_dir.resolve()
+    rom_dir = args.rom_dir.resolve()
     out_dir = args.out_dir.resolve()
     work_dir = out_dir / "work"
 
@@ -226,35 +233,74 @@ def main() -> int:
 
     dtc_bin = first_existing([
         args.dtc,
-        kp5_dir / "kernel_platform/out/msm-kernel-pineapple-perf/host/bin/dtc",
-        yaap_dir / "out/host/linux-x86/bin/dtc",
+        kp6_dir / "prebuilts/kernel-build-tools/linux_musl-x86/bin/dtc",
+        kp6_dir / "prebuilts/kernel-build-tools/linux-x86/bin/dtc",
+        kp6_dir / "out/msm-kernel-pineapple-perf/host/bin/dtc",
+        rom_dir / "out/host/linux-x86/bin/dtc",
+        rom_dir / "prebuilts/kernel-build-tools/linux_musl-x86/bin/dtc",
+        rom_dir / "prebuilts/kernel-build-tools/linux-x86/bin/dtc",
         REPO_ROOT / ".kernel-build/out/scripts/dtc/dtc",
         "dtc",
     ], "dtc")
     ufdt_bin = first_existing([
         args.ufdt,
-        yaap_dir / "prebuilts/kernel-build-tools/linux-x86/bin/ufdt_apply_overlay",
-        kp5_dir / "kernel_platform/prebuilts/kernel-build-tools/linux-x86/bin/ufdt_apply_overlay",
+        kp6_dir / "prebuilts/kernel-build-tools/linux_musl-x86/bin/ufdt_apply_overlay",
+        kp6_dir / "prebuilts/kernel-build-tools/linux-x86/bin/ufdt_apply_overlay",
+        rom_dir / "out/host/linux-x86/bin/ufdt_apply_overlay",
+        rom_dir / "prebuilts/kernel-build-tools/linux_musl-x86/bin/ufdt_apply_overlay",
+        rom_dir / "prebuilts/kernel-build-tools/linux-x86/bin/ufdt_apply_overlay",
         "ufdt_apply_overlay",
     ], "ufdt_apply_overlay")
-    fdtoverlay_bin = first_existing([
-        args.fdtoverlay,
-        kp5_dir / "kernel_platform/out/msm-kernel-pineapple-perf/host/bin/fdtoverlay",
-        REPO_ROOT / ".kernel-build/out/scripts/dtc/fdtoverlay",
-        yaap_dir / "prebuilts/kernel-build-tools/linux-x86/bin/fdtoverlay",
+    fdtoverlay_bin = ensure_dtc_helper(
         "fdtoverlay",
-    ], "fdtoverlay")
-    mkdtboimg_py = first_existing([
+        args.fdtoverlay,
+        [
+            kp6_dir / "prebuilts/kernel-build-tools/linux_musl-x86/bin/fdtoverlay",
+            kp6_dir / "prebuilts/kernel-build-tools/linux-x86/bin/fdtoverlay",
+            kp6_dir / "out/msm-kernel-pineapple-perf/host/bin/fdtoverlay",
+            rom_dir / "out/host/linux-x86/bin/fdtoverlay",
+            rom_dir / "prebuilts/kernel-build-tools/linux_musl-x86/bin/fdtoverlay",
+            rom_dir / "prebuilts/kernel-build-tools/linux-x86/bin/fdtoverlay",
+            REPO_ROOT / ".kernel-build/out/scripts/dtc/fdtoverlay",
+        ],
+        kp6_dir,
+        rom_dir,
+        work_dir,
+    )
+    fdtoverlaymerge_bin = ensure_dtc_helper(
+        "fdtoverlaymerge",
+        args.fdtoverlaymerge,
+        [
+            rom_dir / "out/host/linux-x86/bin/fdtoverlaymerge",
+            kp6_dir / "out/msm-kernel-pineapple-perf/host/bin/fdtoverlaymerge",
+            kp6_dir / "kernel_platform/out/msm-kernel-pineapple-perf/host/bin/fdtoverlaymerge",
+            HERE / "tools/fdtoverlaymerge",
+        ],
+        kp6_dir,
+        rom_dir,
+        work_dir,
+    )
+    mkdtboimg_tool = first_existing([
         args.mkdtboimg,
-        yaap_dir / "system/libufdt/utils/src/mkdtboimg.py",
-        kp5_dir / "kernel_platform/system/libufdt/utils/src/mkdtboimg.py",
-    ], "mkdtboimg.py")
-    fdtoverlaymerge_bin = ensure_fdtoverlaymerge(args.fdtoverlaymerge, kp5_dir, yaap_dir, work_dir)
+        kp6_dir / "prebuilts/kernel-build-tools/linux_musl-x86/bin/mkdtboimg",
+        kp6_dir / "tools/mkbootimg/mkdtboimg.py",
+        rom_dir / "out/host/linux-x86/bin/mkdtboimg",
+        rom_dir / "system/libufdt/utils/src/mkdtboimg.py",
+        rom_dir / "external/libufdt/utils/src/mkdtboimg.py",
+        "mkdtboimg",
+    ], "mkdtboimg")
+
+    soc_inc = kp6_dir / "soc-repo/include"
+    if not soc_inc.is_dir():
+        soc_inc = kp6_dir / "kernel_platform/soc-repo/include"
+    common_inc = kp6_dir / "common/include"
+    if not common_inc.is_dir():
+        common_inc = kp6_dir / "kernel_platform/common/include"
 
     include_dirs = [
         SRC_QCOM,
-        kp5_dir / "kernel_platform/soc-repo/include",
-        kp5_dir / "kernel_platform/common/include",
+        soc_inc,
+        common_inc,
         KERNEL_DIR / "techpacks-mm/src/camera-kernel",
         KERNEL_DIR / "techpacks-mm/src/synx-kernel",
         KERNEL_DIR / "techpacks-conn/src/audio-kernel/include",
@@ -282,18 +328,15 @@ def main() -> int:
         "verification": [],
     }
 
-    # 1. Compile all unique SoC-level techpack overlays
-    all_soc_overlays = sorted(set(soc_techpack_overlays(True) + soc_techpack_overlays(False)))
-    print(f"[1/5] Compiling {len(all_soc_overlays)} SoC-level techpack overlays...")
-    for rel in all_soc_overlays:
+    print(f"[1/5] Compiling {len(set(soc_techpack_overlays(True) + soc_techpack_overlays(False)))} SoC-level techpack overlays...")
+    for rel in sorted(set(soc_techpack_overlays(True) + soc_techpack_overlays(False))):
         out_p = work_dir / "soc_ov" / (Path(rel).stem + ".dtbo")
         out_p.parent.mkdir(parents=True, exist_ok=True)
         compile_dts_path(SRC_QCOM / rel, out_p, work_dir, dtc_bin, include_dirs)
         report["soc_overlays"][rel] = {"dtbo": str(out_p), "size": out_p.stat().st_size}
         print(f"  OK {rel} ({out_p.stat().st_size} B)")
 
-    # 2. Single-pass compilation of all 4 base 6.12 pineapple DTBs + SoC techpacks
-    print("\n[2/5] Compiling 4 base 6.12 pineapple DTBs + SoC techpacks in single pass...")
+    print("\n[2/5] Compiling 4 base 6.18 pineapple DTBs + SoC techpacks in single pass...")
     final_base_dtbs: list[tuple[str, Path]] = []
     for name, rel_dts, is_v2 in BASE_DTBS:
         ov_rels = soc_techpack_overlays(is_v2)
@@ -320,7 +363,6 @@ def main() -> int:
             out_f.write(p.read_bytes())
     print(f"  PACKED {dtb_img} ({dtb_img.stat().st_size} B, {len(final_base_dtbs)} concatenated DTBs)")
 
-    # 3. Compile all 5 houji board overlays and verify each via ufdt_apply_overlay
     print("\n[3/5] Compiling & verifying all 5 houji board overlays...")
     v2_base = out_dir / "pineapple-v2.dtb"
     v2_plus_board_fdt = work_dir / "verify_individual/v2_plus_houji-sm8650-overlay.fdt.dtb"
@@ -346,21 +388,20 @@ def main() -> int:
         })
         print(f"  OK {name}.dtbo ({out_p.stat().st_size} B) -> ufdt_apply_overlay({target_base.name}) PASS")
 
-    # 4. Merge into unified houji-sm8650-merged.dtbo & pack dtbo.img
     print("\n[4/5] Building unified houji-sm8650-merged.dtbo & out/dtbo.img...")
     unified_dtbo = out_dir / "houji-sm8650-merged.dtbo"
     run([str(fdtoverlaymerge_bin), "-i", str(compiled_board_ovs[0]), "-o", str(unified_dtbo)] + [str(p) for p in compiled_board_ovs[1:]], "fdtoverlaymerge")
 
     dtbo_img = out_dir / "dtbo.img"
+    mkdtbo_prefix = [sys.executable, str(mkdtboimg_tool)] if mkdtboimg_tool.suffix == ".py" else [str(mkdtboimg_tool)]
     run([
-        sys.executable, str(mkdtboimg_py), "create", str(dtbo_img),
+        *mkdtbo_prefix, "create", str(dtbo_img),
         "--page_size=4096", "--version=0",
         str(unified_dtbo), "--id=0", "--rev=0",
         "--custom0=0", "--custom1=0", "--custom2=0", "--custom3=0",
     ], "mkdtboimg create dtbo.img")
     print(f"  PACKED {dtbo_img} ({dtbo_img.stat().st_size} B)")
 
-    # 5. End-to-end verification across all 4 base DTBs + node order checks
     print("\n[5/5] End-to-end ufdt_apply_overlay verification across all 4 base DTBs...")
     for name, base_p in final_base_dtbs:
         merged_p = out_dir / f"{name}-houji-merged.dtb"

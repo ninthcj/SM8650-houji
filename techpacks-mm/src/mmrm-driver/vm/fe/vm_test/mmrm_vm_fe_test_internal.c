@@ -178,7 +178,7 @@ void mmrm_vm_fe_client_tests(struct platform_device *pdev)
 		clk_desc = &desc.client_info.desc;
 		clk_desc->client_domain = p_clk_res->domain;
 		clk_desc->client_id = p_clk_res->id;
-		strlcpy((char *)clk_desc->name, p_clk_res->name, sizeof(clk_desc->name));
+		strscpy((char *)clk_desc->name, p_clk_res->name, sizeof(clk_desc->name));
 
 		// Register client
 		client = test_mmrm_vm_fe_client_register(&desc);
@@ -255,7 +255,7 @@ void mmrm_vm_fe_client_register_tests(struct platform_device *pdev)
 		clk_desc = &desc.client_info.desc;
 		clk_desc->client_domain = p_clk_res->domain;
 		clk_desc->client_id = p_clk_res->id;
-		strlcpy((char *)clk_desc->name, p_clk_res->name, sizeof(clk_desc->name));
+		strscpy((char *)clk_desc->name, p_clk_res->name, sizeof(clk_desc->name));
 
 		// Register client
 		client = test_mmrm_vm_fe_client_register(&desc);
@@ -712,7 +712,7 @@ int test_mmrm_testcase_client_register(struct platform_device *pdev,
 
 	desc.client_info.desc.client_domain = pcase->client_domain;
 	desc.client_info.desc.client_id = pcase->client_id;
-	strlcpy((char *)(desc.client_info.desc.name), pcase->name,
+	strscpy((char *)(desc.client_info.desc.name), pcase->name,
 		MMRM_CLK_CLIENT_NAME_SIZE);
 
 	// Register client

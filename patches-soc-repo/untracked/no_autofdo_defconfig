@@ -1,0 +1,2 @@
+# Disable Clang AutoFDO (-fsplit-machine-functions emits .cold br x* jumps without BTI landing pads under LTO_NONE)
+# CONFIG_AUTOFDO_CLANG is not set

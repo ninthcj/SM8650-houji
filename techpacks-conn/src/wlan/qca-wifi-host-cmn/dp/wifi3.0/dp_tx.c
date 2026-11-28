@@ -9018,7 +9018,7 @@ dp_tx_desc_reset_vdev(struct dp_soc *soc, struct dp_tx_desc_s *tx_desc,
 	TX_DESC_LOCK_UNLOCK(&pool->lock);
 }
 
-void __dp_tx_desc_flush(struct dp_pdev *pdev, struct dp_vdev *vdev,
+static void __dp_tx_desc_flush(struct dp_pdev *pdev, struct dp_vdev *vdev,
 			bool force_free, bool spcl_pool)
 {
 	uint8_t i, num_pool;

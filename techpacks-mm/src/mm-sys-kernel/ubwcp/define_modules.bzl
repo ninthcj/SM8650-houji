@@ -32,7 +32,7 @@ def define_modules(target, variant):
         ],
         hdrs=["include/uapi/ubwcp_ioctl.h", "include/kernel/ubwcp.h"],
         deps = deps,
-        copts = ["-Wno-format"],
+        copts = ["-Wno-format", "-fstrict-flex-arrays=0"],
         includes = ["include", "include/kernel"],
         kernel_build = kernel_build,
         visibility = ["//visibility:public"]

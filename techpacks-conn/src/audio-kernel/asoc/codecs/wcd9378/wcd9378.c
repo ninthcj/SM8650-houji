@@ -17,7 +17,9 @@
 #include <asoc/msm-cdc-pinctrl.h>
 #include <asoc/msm-cdc-supply.h>
 #include <bindings/audio-codec-port-types.h>
+#if IS_ENABLED(CONFIG_REGMAP_QTI_DEBUGFS)
 #include <linux/qti-regmap-debugfs.h>
+#endif
 #include <linux/irqdesc.h>
 
 #include "wcd9378-reg-masks.h"
@@ -4136,7 +4138,9 @@ static int wcd9378_soc_codec_probe(struct snd_soc_component *component)
 	wcd9378->component = component;
 	snd_soc_component_init_regmap(component, wcd9378->regmap);
 
+#if IS_ENABLED(CONFIG_REGMAP_QTI_DEBUGFS)
 	devm_regmap_qti_debugfs_register(&wcd9378->tx_swr_dev->dev, wcd9378->regmap);
+#endif
 
 	ret = wcd9378_wcd_mode_check(component);
 	if (!ret) {

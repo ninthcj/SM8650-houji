@@ -220,3 +220,4 @@ struct rmnet_offload_state *rmnet_offload_state_get(void)
 
 module_init(rmnet_offload_init);
 module_exit(rmnet_offload_exit);
+MODULE_DESCRIPTION("QTI RmNet Offload Driver");

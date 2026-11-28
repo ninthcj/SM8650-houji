@@ -63,6 +63,12 @@ void ubwcp_hw_set_range_check(void __iomem *base, u16 index, phys_addr_t pa, siz
 u64 ubwcp_hw_interrupt_src_address(void __iomem *base, u16 interrupt);
 void ubwcp_hw_interrupt_clear(void __iomem *base, u16 interrupt);
 void ubwcp_hw_interrupt_enable(void __iomem *base, u16 interrupt, bool enable);
+int ubwcp_hw_interrupt_status(void __iomem *base, u16 interrupt);
+void ubwcp_hw_set_default_range_check_value(void __iomem *base, u32 val);
+void ubwcp_hw_macro_tile_config(void __iomem *base);
+void ubwcp_hw_decoder_config(void __iomem *base);
+void ubwcp_hw_encoder_config(void __iomem *base);
+void ubwcp_hw_power_vote_status(void __iomem *pwr_ctrl, u8 *vote, u8 *status);
 void ubwcp_hw_power_on(void __iomem *pwr_ctrl, bool power_on);
 void ubwcp_hw_one_time_init(void __iomem *base);
 int ubwcp_hw_flush(void __iomem *base);

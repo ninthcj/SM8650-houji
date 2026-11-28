@@ -55,6 +55,7 @@ int mmrm_free_platform_resources(struct mmrm_driver_data *drv_data);
 
 int mmrm_init(struct mmrm_driver_data *drv_data);
 int mmrm_deinit(struct mmrm_driver_data *drv_data);
+int mmrm_client_get_clk_count(void);
 
 #endif //_MMRM_INTERNAL_H_
 

@@ -113,7 +113,7 @@ exit:
 }
 #endif
 
-bool is_skip_op_required(struct dsi_display *display)
+static bool is_skip_op_required(struct dsi_display *display)
 {
 	if (!display)
 		return false;
@@ -633,9 +633,9 @@ free_aspace_cb:
 	msm_gem_address_space_unregister_cb(display->aspace,
 			dsi_display_aspace_cb_locked, display);
 free_gem:
-	mutex_lock(&display->drm_dev->struct_mutex);
+	mutex_lock(&((struct msm_drm_private *)display->drm_dev->dev_private)->struct_mutex);
 	msm_gem_free_object(display->tx_cmd_buf);
-	mutex_unlock(&display->drm_dev->struct_mutex);
+	mutex_unlock(&((struct msm_drm_private *)display->drm_dev->dev_private)->struct_mutex);
 error:
 	return rc;
 }
@@ -1019,7 +1019,7 @@ static int dsi_display_status_check_te(struct dsi_display *display,
 	return rc;
 }
 
-void dsi_display_toggle_error_interrupt_status(struct dsi_display * display, bool enable)
+static void dsi_display_toggle_error_interrupt_status(struct dsi_display * display, bool enable)
 {
 	int i = 0;
 	struct dsi_display_ctrl *ctrl;
@@ -3000,7 +3000,7 @@ static int dsi_display_phy_pll_disable(struct dsi_display *display)
 	return dsi_phy_pll_toggle(m_ctrl->phy, false);
 }
 
-int dsi_display_phy_pll_toggle(void *priv, bool prepare)
+static int dsi_display_phy_pll_toggle(void *priv, bool prepare)
 {
 	struct dsi_display *display = priv;
 
@@ -3018,7 +3018,7 @@ int dsi_display_phy_pll_toggle(void *priv, bool prepare)
 		return dsi_display_phy_pll_disable(display);
 }
 
-int dsi_display_phy_configure(void *priv, bool commit)
+static int dsi_display_phy_configure(void *priv, bool commit)
 {
 	int rc = 0;
 	struct dsi_display *display = priv;
@@ -4676,7 +4676,7 @@ static bool dsi_display_is_seamless_dfps_possible(
 	return true;
 }
 
-void dsi_display_update_byte_intf_div(struct dsi_display *display)
+static void dsi_display_update_byte_intf_div(struct dsi_display *display)
 {
 	struct dsi_host_common_cfg *config;
 	struct dsi_display_ctrl *m_ctrl;
@@ -6585,7 +6585,7 @@ static int dsi_display_drm_ext_get_modes(
 
 static enum drm_mode_status dsi_display_drm_ext_mode_valid(
 		struct drm_connector *connector,
-		struct drm_display_mode *mode,
+		const struct drm_display_mode *mode,
 		void *disp, const struct msm_resource_caps_info *avail_res)
 {
 	struct dsi_display *display = disp;
@@ -7134,7 +7134,7 @@ int dsi_display_get_mode_count(struct dsi_display *display,
 	return 0;
 }
 
-void dsi_display_adjust_mode_timing(struct dsi_display *display,
+static void dsi_display_adjust_mode_timing(struct dsi_display *display,
 			struct dsi_display_mode *dsi_mode,
 			int lanes, int bpp)
 {
@@ -7380,7 +7380,7 @@ void dsi_display_put_mode(struct dsi_display *display,
 	dsi_panel_put_mode(mode);
 }
 
-int dsi_display_get_modes_helper(struct dsi_display *display,
+static int dsi_display_get_modes_helper(struct dsi_display *display,
 	struct dsi_display_ctrl *ctrl, u32 timing_mode_count,
 	struct dsi_dfps_capabilities dfps_caps, struct dsi_qsync_capabilities *qsync_caps,
 	struct dsi_dyn_clk_caps *dyn_clk_caps, struct dsi_avr_capabilities *avr_caps)
@@ -9366,7 +9366,6 @@ static void dsi_display_handle_poms_te(struct work_struct *work)
 {
 	struct dsi_display *display = NULL;
 	struct delayed_work *dw = to_delayed_work(work);
-	struct mipi_dsi_device *dsi = NULL;
 	struct dsi_panel *panel = NULL;
 	int rc = 0;
 
@@ -9383,8 +9382,12 @@ static void dsi_display_handle_poms_te(struct work_struct *work)
 		goto error;
 	}
 
-	dsi = &panel->mipi_device;
-	rc = mipi_dsi_dcs_set_tear_off(dsi);
+	{
+		struct mipi_dsi_multi_context ctx = { .dsi = &panel->mipi_device };
+
+		mipi_dsi_dcs_set_tear_off_multi(&ctx);
+		rc = ctx.accum_err;
+	}
 
 error:
 	mutex_unlock(&panel->panel_lock);

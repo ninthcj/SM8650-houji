@@ -24,7 +24,9 @@
 #include <asoc/msm-cdc-supply.h>
 #include <asoc/wcd-mbhc-v2-api.h>
 #include <bindings/audio-codec-port-types.h>
+#if IS_ENABLED(CONFIG_REGMAP_QTI_DEBUGFS)
 #include <linux/qti-regmap-debugfs.h>
+#endif
 #include "wcd939x-registers.h"
 #include "wcd939x.h"
 #include "internal.h"
@@ -4724,7 +4726,9 @@ static int wcd939x_soc_codec_probe(struct snd_soc_component *component)
 	wcd939x->component = component;
 	snd_soc_component_init_regmap(component, wcd939x->regmap);
 
+#if IS_ENABLED(CONFIG_REGMAP_QTI_DEBUGFS)
 	devm_regmap_qti_debugfs_register(&wcd939x->tx_swr_dev->dev, wcd939x->regmap);
+#endif
 
 	wcd939x->wcd939x_proc_entry = proc_mkdir("wcd939x_reginfo", NULL);
 	if (wcd939x->wcd939x_proc_entry) {

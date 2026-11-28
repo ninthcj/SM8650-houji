@@ -1723,7 +1723,7 @@ static unsigned int _preempt_count_show(struct adreno_device *adreno_dev)
 	return count;
 }
 
-ssize_t _preempt_info_show(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t _preempt_info_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(dev_get_drvdata(dev));
 	const struct adreno_hwsched_ops *hwsched_ops = adreno_dev->hwsched.hwsched_ops;
@@ -2266,8 +2266,8 @@ static void _print_syncobj(struct adreno_device *adreno_dev, struct kgsl_drawobj
 		bool signaled = test_bit(DMA_FENCE_FLAG_SIGNALED_BIT, &fence->flags);
 		char value[32] = "unknown";
 
-		if (fence->ops->timeline_value_str)
-			fence->ops->timeline_value_str(fence, value, sizeof(value));
+		if (kgsl)
+			kgsl_sync_timeline_value_str(fence, value, sizeof(value));
 
 		dev_err(device->dev,
 			"dma fence[%d] signaled:%d kgsl:%d ctx:%llu seqno:%llu value:%s\n",

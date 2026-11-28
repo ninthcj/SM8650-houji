@@ -271,6 +271,10 @@ int synx_signal_core(struct synx_coredata *synx_obj,
 int synx_ipc_callback(uint32_t client_id,
 	int64_t data, void *priv);
 
+void synx_external_callback(s32 sync_obj, int status, void *data);
+
+void synx_fence_release(struct dma_fence *fence);
+
 void synx_signal_handler(struct work_struct *cb_dispatch);
 
 int synx_native_release_core(struct synx_client *session,

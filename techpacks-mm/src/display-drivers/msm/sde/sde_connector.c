@@ -929,7 +929,7 @@ static int _sde_connector_update_bl_scale(struct sde_connector *c_conn)
 	return rc;
 }
 
-void sde_connector_set_colorspace(struct sde_connector *c_conn)
+static void sde_connector_set_colorspace(struct sde_connector *c_conn)
 {
 	int rc = 0;
 
@@ -2847,7 +2847,7 @@ static int sde_connector_get_modes(struct drm_connector *connector)
 
 static enum drm_mode_status
 sde_connector_mode_valid(struct drm_connector *connector,
-		struct drm_display_mode *mode)
+		const struct drm_display_mode *mode)
 {
 	struct sde_connector *c_conn;
 	struct msm_resource_caps_info avail_res;

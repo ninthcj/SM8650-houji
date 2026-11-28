@@ -128,6 +128,11 @@ static inline char *synx_debug_str(int level)
 			invalid_val = true;                         \
 	} while (0)
 
+void populate_bound_rows(struct synx_coredata *row, char *cur, char *end);
+void synx_test_fence_release(struct dma_fence *fence);
+void synx_dma_fence_callback(struct dma_fence *fence,
+	struct dma_fence_cb *cb);
+
 /**
  * synx_init_debugfs_dir - Initializes debugfs
  *

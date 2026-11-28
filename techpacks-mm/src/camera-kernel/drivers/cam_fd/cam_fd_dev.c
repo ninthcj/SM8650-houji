@@ -15,6 +15,7 @@
 #include "cam_fd_context.h"
 #include "cam_fd_hw_mgr.h"
 #include "cam_fd_hw_mgr_intf.h"
+#include "cam_fd_dev.h"
 #include "camera_main.h"
 
 #define CAM_FD_DEV_NAME "cam-fd"

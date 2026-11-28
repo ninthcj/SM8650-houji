@@ -6,6 +6,9 @@
 #ifndef _GSIHAL_REG_H_
 #define _GSIHAL_REG_H_
 
+#include <linux/types.h>
+#include "../gsi.h"
+
 /*
  * Registers names
  *

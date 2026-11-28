@@ -96,10 +96,12 @@ int main(void) {
         } else if (err == EEXIST) {
             already++;
             printf("[MODTEST] ALREADY group=%s path=%s\n", group, path);
-        } else if (err == ENOEXEC || err == EINVAL || err == EKEYREJECTED || err == EBADMSG) {
+        } else if (err == ENOEXEC || err == EINVAL || err == EKEYREJECTED ||
+                   err == EBADMSG || err == EACCES || err == ENOKEY) {
             /* Note: some QCOM drivers return -EINVAL when DT property is missing in QEMU virt,
-             * whereas kernel ELF/CRC/vermagic errors print dmesg warnings and return ENOEXEC. */
-            if (err == ENOEXEC || err == EKEYREJECTED || err == EBADMSG) {
+             * whereas kernel ELF/CRC/vermagic/protected-symbol/signature errors must fail loudly. */
+            if (err == ENOEXEC || err == EKEYREJECTED || err == EBADMSG ||
+                err == EACCES || err == ENOKEY) {
                 format_err++;
                 printf("[MODTEST] FORMAT_ERR group=%s path=%s errno=%d (%s)\n",
                        group, path, err, strerror(err));
@@ -110,7 +112,7 @@ int main(void) {
             }
         } else if (err == ENODEV || err == ENOENT || err == EIO || err == EOPNOTSUPP ||
                    err == ENXIO || err == ENOMEM || err == EAGAIN ||
-                   err == EPERM || err == EACCES || err == ETIMEDOUT || err == EBUSY ||
+                   err == EPERM || err == ETIMEDOUT || err == EBUSY ||
                    err == EFAULT || err == ENOSYS) {
             hw_absent++;
             printf("[MODTEST] INIT_ERR group=%s path=%s errno=%d (%s)\n",

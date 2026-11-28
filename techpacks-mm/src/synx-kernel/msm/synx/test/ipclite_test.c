@@ -625,7 +625,7 @@ static int alloc_index(int *bitmap_base)
 	return index;
 }
 
-void clear_index(int *bitmap_base, uint32_t index)
+static void clear_index(int *bitmap_base, uint32_t index)
 {
 	uint32_t addr_idx = index/32, ii = index % 32;
 
@@ -1363,4 +1363,5 @@ static void __exit ipclite_test_exit(void)
 module_init(ipclite_test_init);
 module_exit(ipclite_test_exit);
 
+MODULE_DESCRIPTION("IPCLite Test Driver");
 MODULE_LICENSE("GPL v2");

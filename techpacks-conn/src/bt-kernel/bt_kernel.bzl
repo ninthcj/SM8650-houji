@@ -56,11 +56,11 @@ def define_target_variant_modules(target, variant, modules, config_options = [])
     """
     kernel_build = "{}_{}".format(target, variant)
     kernel_build_label = select({
-        "//build/kernel/kleaf:socrepo_true": "//soc-repo:{}_base_kernel".format(kernel_build),
-        "//build/kernel/kleaf:socrepo_false": "//msm-kernel:{}".format(kernel_build),
+        "//build/qcom_build_extensions:qtisocrepo_true": "//soc-repo:{}_base_kernel".format(kernel_build),
+        "//build/qcom_build_extensions:qtisocrepo_false": "//msm-kernel:{}".format(kernel_build),
     })
     deps = select({
-            "//build/kernel/kleaf:socrepo_true": [
+            "//build/qcom_build_extensions:qtisocrepo_true": [
               "//soc-repo:all_headers",
               "//soc-repo:{}/drivers/remoteproc/rproc_qcom_common".format(kernel_build),
               "//soc-repo:{}/kernel/trace/qcom_ipc_logging".format(kernel_build),
@@ -68,7 +68,7 @@ def define_target_variant_modules(target, variant, modules, config_options = [])
               "//soc-repo:{}/drivers/slimbus/slimbus".format(kernel_build),
               "//soc-repo:{}/drivers/pinctrl/qcom/pinctrl-msm".format(kernel_build),
             ],
-            "//build/kernel/kleaf:socrepo_false": ["//msm-kernel:all_headers"],
+            "//build/qcom_build_extensions:qtisocrepo_false": ["//msm-kernel:all_headers"],
     })
 
     modules = [bt_modules.get(module_name) for module_name in modules]

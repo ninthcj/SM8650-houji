@@ -52,6 +52,7 @@ def _define_module(target, variant):
         out = "msm_hfi_core.ko",
         defconfig = target_config,
         kconfig = "Kconfig",
+        copts = ["-fstrict-flex-arrays=0"],
         deps = deps + [
             "//vendor/qcom/opensource/mm-drivers:mm_drivers_headers",
         ],

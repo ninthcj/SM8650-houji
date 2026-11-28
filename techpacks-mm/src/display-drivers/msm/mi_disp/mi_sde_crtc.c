@@ -7,6 +7,7 @@
 #define pr_fmt(fmt) "mi_sde_crtc:[%s:%d] " fmt, __func__, __LINE__
 
 #include <drm/drm_crtc.h>
+#include "mi_sde_crtc.h"
 #include "mi_sde_connector.h"
 
 void mi_sde_crtc_check_layer_flags(struct drm_crtc *crtc)

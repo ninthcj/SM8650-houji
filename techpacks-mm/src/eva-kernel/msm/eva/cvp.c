@@ -650,5 +650,6 @@ module_exit(msm_cvp_exit);
 MODULE_SOFTDEP("pre: msm-mmrm");
 MODULE_SOFTDEP("pre: synx-driver");
 MODULE_SOFTDEP("pre: frpc-adsprpc");
+MODULE_DESCRIPTION("QTI EVA/CVP Driver");
 MODULE_LICENSE("GPL v2");
-MODULE_IMPORT_NS(DMA_BUF);
+MODULE_IMPORT_NS("DMA_BUF");

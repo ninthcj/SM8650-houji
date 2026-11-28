@@ -103,12 +103,12 @@ QDF_STATUS wlan_if_mgr_psoc_created_notification(struct wlan_objmgr_psoc *psoc,
 QDF_STATUS wlan_if_mgr_psoc_destroyed_notification(struct wlan_objmgr_psoc *psoc,
 						   void *arg_list);
 #else
-inline QDF_STATUS wlan_if_mgr_init(void)
+static inline QDF_STATUS wlan_if_mgr_init(void)
 {
 	return QDF_STATUS_SUCCESS;
 }
 
-QDF_STATUS wlan_if_mgr_deinit(void)
+static inline QDF_STATUS wlan_if_mgr_deinit(void)
 {
 	return QDF_STATUS_SUCCESS;
 }

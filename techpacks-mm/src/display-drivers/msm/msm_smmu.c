@@ -242,7 +242,7 @@ static void msm_smmu_destroy(struct msm_mmu *mmu)
 	kfree(smmu);
 }
 
-struct device *msm_smmu_get_dev(struct msm_mmu *mmu)
+static struct device *msm_smmu_get_dev(struct msm_mmu *mmu)
 {
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 
@@ -600,6 +600,23 @@ static struct platform_driver msm_smmu_driver = {
 	},
 };
 
+bool msm_smmu_is_mapped(void)
+{
+	struct msm_smmu_client *curr;
+	bool mapped = false;
+
+	mutex_lock(&smmu_list_lock);
+	list_for_each_entry(curr, &sde_smmu_list, smmu_list) {
+		if (device_iommu_mapped(curr->dev)) {
+			mapped = true;
+			break;
+		}
+	}
+	mutex_unlock(&smmu_list_lock);
+
+	return mapped;
+}
+
 int __init msm_smmu_driver_init(void)
 {
 	int ret;
@@ -619,5 +636,5 @@ void __exit msm_smmu_driver_cleanup(void)
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MSM SMMU driver");
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 19, 0))
-MODULE_IMPORT_NS(DMA_BUF);
+MODULE_IMPORT_NS("DMA_BUF");
 #endif

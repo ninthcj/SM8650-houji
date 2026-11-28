@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Assemble flashable Android 17 / GKI 2.0 (6.12) images for Xiaomi 14 (houji),
-verify AVB chain, VINTF compatibility, depmod/softdep closure, KMI CRCs,
-and run a live ARM64 QEMU kCFI module-loading smoke test (rootless).
+"""Assemble flashable Android 17 / GKI 2.0 (6.18) images for Xiaomi 14 (houji),
+verify AVB chain, VINTF compatibility, depmod/softdep closure, KMI CRCs & protected
+ABI symbols, and run a live ARM64 QEMU kCFI module-loading smoke test (rootless).
 """
+
+from __future__ import annotations
 
 import argparse
 from collections import defaultdict, deque
@@ -39,7 +41,8 @@ FIXED_TIMESTAMP = "1230768000"
 
 EXTRA_VENDOR_CMDLINE = "android_arch_task_struct_size=512 console=ramoops panic=5 qcom_scm.download_mode=0 fw_devlink.strict=0"
 
-# Pruned GKI system_dlkm modules absent on houji hardware (tipc, tipc_diag, hci_uart retained).
+# Pruned GKI system_dlkm modules: VM/PC/radio buses + 6.18 CoreSight/Thunderbolt/PCIe-PMU/KUnit debug bloat.
+# tipc.ko, tipc_diag.ko, and hci_uart.ko are explicitly retained.
 SYSTEM_DLKM_PRUNE = frozenset({
     "gzvm", "kheaders", "exynos_hvm",
     "can", "can_raw", "can_bcm", "can_gw", "can_dev", "vcan", "slcan",
@@ -49,13 +52,27 @@ SYSTEM_DLKM_PRUNE = frozenset({
     "virtio_balloon", "virtio_blk", "virtio_console", "virtio_pci",
     "virtio_pci_legacy_dev", "virtio_pci_modern_dev", "vmw_vsock_virtio_transport",
     "xhci_pci_renesas", "snd_hda_codec_hdmi", "usbmon",
+    "coresight", "coresight_etm4x", "coresight_funnel", "coresight_replicator",
+    "coresight_trbe", "coresight_tmc", "coresight_stm", "coresight_cti",
+    "coresight_catu", "coresight_tpiu", "coresight_etb10", "coresight_tpdm",
+    "coresight_tpda", "coresight_dummy", "coresight_ctcu", "coresight_cpu_debug",
+    "coresight_kunit_tests",
+    "thunderbolt", "dwc_pcie_pmu",
+    "binder_alloc_kunit", "wrapfd_kunit", "test_rtc_lib",
+    "kunit", "kunit_test", "kunit_example_test",
+    "clk_gate_test", "clk_kunit_helpers", "clk_test",
+    "dev_addr_lists_test", "ext4_inode_test", "fat_test", "hid_uclogic_test",
+    "iio_test_format", "input_test", "of_kunit_helpers", "platform_test",
+    "regmap_kunit", "regmap_ram", "regmap_raw_ram",
+    "soc_topology_test", "soc_utils_test", "time_test",
 })
 
-# Keep USB Ethernet / USB-Serial OTG drivers inside system_dlkm.img (with depmod/alias for ueventd hotplug)
-# while excluding them from boot-time modules.load so Ring-0 memory stays lean at boot.
+# Keep USB Ethernet / USB-Serial OTG drivers and optional rust_binder inside system_dlkm.img
+# (depmod/alias preserved; rust_binder only loads if binder.impl=rust is passed on cmdline)
+# while excluding them from default boot-time modules.load so Ring-0 memory stays lean.
 SYSTEM_DLKM_HOTPLUG_ONLY = frozenset({
     "aqc111", "asix", "ax88179_178a", "cdc_acm", "cdc_eem", "cdc_ether", "cdc_ncm",
-    "ftdi_sio", "mii", "r8152", "r8153_ecm", "rtl8150", "usbnet", "usbserial",
+    "ftdi_sio", "mii", "r8152", "r8153_ecm", "rtl8150", "rust_binder", "usbnet", "usbserial",
 })
 
 NON_PRODUCTION_TEST_MODULES = frozenset({
@@ -64,7 +81,7 @@ NON_PRODUCTION_TEST_MODULES = frozenset({
     "crm_v2", "clk_dummy", "radio_i2c_rtc6226_qca", "phy_qcom_ufs_qrbtc_sdm845",
 })
 
-STOCK_6_1_TO_6_12_MAP: dict[str, list[str]] = {
+STOCK_6_1_TO_6_18_MAP: dict[str, list[str]] = {
     "crm.ko": ["crm.ko"],
     "crypto-qti.ko": ["qcom_ice.ko", "ufshcd-crypto-qti.ko"],
     "ufs_qcom.ko": ["ufs-qcom.ko"],
@@ -83,7 +100,7 @@ STOCK_6_1_TO_6_12_MAP: dict[str, list[str]] = {
     "diag.ko": ["tipc_diag.ko"],
 }
 
-ESSENTIAL_STAGE1_6_12 = [
+ESSENTIAL_STAGE1_6_18 = [
     "qtee_shmbridge.ko", "crm.ko", "mi_md_kmsg.ko", "nvmem_qfprom.ko", "qti-fixed-regulator.ko",
     "llcc-qcom.ko", "pm8941-pwrkey.ko", "qcom_ice.ko", "ufshcd-crypto-qti.ko", "ufs-qcom.ko",
     "phy-qcom-ufs.ko", "phy-qcom-ufs-qmp-v4-pineapple.ko", "gcc-pineapple.ko", "tcsrcc-pineapple.ko",
@@ -93,7 +110,7 @@ ESSENTIAL_STAGE1_6_12 = [
     "qcom_pd_mapper.ko", "qcom_pdr_msg.ko", "si_core_module.ko",
 ]
 
-ESSENTIAL_RECOVERY_6_12 = [
+ESSENTIAL_RECOVERY_6_18 = [
     "msm_drm.ko", "qti_battery_charger.ko", "qcom-hv-haptics.ko", "mi_thermal_interface.ko",
     "hwid.ko", "dump_display.ko", "dwc3-msm.ko", "usb_f_ccid.ko", "usb_f_cdev.ko",
     "usb_f_gsi.ko", "usb_f_qdss.ko", "phy-msm-snps-eusb2.ko", "phy-msm-ssusb-qmp.ko",
@@ -113,12 +130,16 @@ def sha256_file(path: Path) -> str:
         return hashlib.file_digest(f, "sha256").hexdigest()
 
 
-def find_llvm_strip(kp5_dir: Path) -> Path | None:
-    kp_clang = kp5_dir / "kernel_platform/prebuilts/clang/host/linux-x86"
-    if kp_clang.is_dir():
-        for cand in sorted(kp_clang.glob("clang-*/bin/llvm-strip"), reverse=True):
-            if cand.is_file():
-                return cand
+def find_llvm_strip(kp6_dir: Path, rom_dir: Path) -> Path | None:
+    for root in (
+        kp6_dir / "prebuilts/clang/host/linux-x86",
+        rom_dir / "prebuilts/clang/host/linux-x86",
+        kp6_dir / "kernel_platform/prebuilts/clang/host/linux-x86",
+    ):
+        if root.is_dir():
+            for cand in sorted(root.glob("clang-*/bin/llvm-strip"), reverse=True):
+                if cand.is_file():
+                    return cand
     for tool in ("llvm-strip", "aarch64-linux-gnu-strip"):
         hit = shutil.which(tool)
         if hit:
@@ -214,6 +235,7 @@ def parse_ko_metadata(ko_path: Path) -> dict:
                 softdep_post.append(tok)
 
     exported_crcs: dict[str, int] = {}
+    undef_symbols: set[str] = set()
     if ".symtab" in by_name and ".strtab" in by_name:
         _, sym_off, sym_sz, entsz = by_name[".symtab"]
         _, str_off, str_sz, _ = by_name[".strtab"]
@@ -231,6 +253,8 @@ def parse_ko_metadata(ko_path: Path) -> dict:
                 else:
                     continue
                 exported_crcs[name[6:]] = crc
+            elif st_shndx == 0 and name and name not in ("__this_module", "module_layout"):
+                undef_symbols.add(name)
 
     req_versions: list[tuple[str, int]] = []
     if "__versions" in by_name:
@@ -242,6 +266,7 @@ def parse_ko_metadata(ko_path: Path) -> dict:
                 req_versions.append((name, crc))
 
     vermagic = modinfo["vermagic"][0] if modinfo.get("vermagic") else ""
+    signed = MODULE_SIG_MARKER in data[-64:]
     return {
         "path": ko_path,
         "filename": ko_path.name,
@@ -252,6 +277,8 @@ def parse_ko_metadata(ko_path: Path) -> dict:
         "softdep_post": softdep_post,
         "exported_crcs": exported_crcs,
         "req_versions": req_versions,
+        "undef_symbols": undef_symbols,
+        "signed": signed,
     }
 
 
@@ -262,12 +289,25 @@ def extract_image_release(image_path: Path) -> str:
     return m.group(1).decode("ascii")
 
 
-def verify_kmi_and_vermagic(symvers_path: Path, ko_meta_by_group: dict[str, list[dict]], expected_release: str) -> dict:
+def verify_kmi_and_vermagic(
+    symvers_path: Path,
+    abi_path: Path | None,
+    ko_meta_by_group: dict[str, list[dict]],
+    expected_release: str,
+) -> dict:
     vmlinux_crcs: dict[str, int] = {}
     for line in symvers_path.read_text().splitlines():
         parts = line.split("\t")
         if len(parts) >= 2:
             vmlinux_crcs[parts[1]] = int(parts[0], 16)
+
+    abi_set: set[str] | None = None
+    if abi_path and abi_path.is_file():
+        abi_set = {
+            ln.strip()
+            for ln in abi_path.read_text().splitlines()
+            if ln.strip() and not ln.strip().startswith("#") and not ln.strip().startswith("[")
+        }
 
     mod_crcs: dict[str, int] = {}
     for metas in ko_meta_by_group.values():
@@ -278,6 +318,7 @@ def verify_kmi_and_vermagic(symvers_path: Path, ko_meta_by_group: dict[str, list
     vermagics: set[str] = set()
     mismatches = []
     missing = []
+    protected = []
     group_stats = {}
     total_refs = 0
 
@@ -295,12 +336,16 @@ def verify_kmi_and_vermagic(symvers_path: Path, ko_meta_by_group: dict[str, list
                         mismatches.append([label, m["filename"], sym, hex(req_crc), hex(mod_crcs[sym])])
                 else:
                     missing.append([label, m["filename"], sym, hex(req_crc)])
+            if abi_set is not None and not m["signed"]:
+                for sym in sorted(m["undef_symbols"]):
+                    if sym not in mod_crcs and sym not in abi_set:
+                        protected.append([label, m["filename"], sym])
         group_stats[label] = {"modules": len(metas), "symbol_refs": refs}
         total_refs += refs
 
     bad_vermagics = [v for v in sorted(vermagics) if not v.startswith(expected_release + " ")]
     return {
-        "ok": (not mismatches and not missing and len(vermagics) == 1 and not bad_vermagics),
+        "ok": (not mismatches and not missing and not protected and len(vermagics) == 1 and not bad_vermagics),
         "total_symbol_refs": total_refs,
         "unique_vermagics": sorted(vermagics),
         "bad_vermagics": bad_vermagics,
@@ -308,11 +353,13 @@ def verify_kmi_and_vermagic(symvers_path: Path, ko_meta_by_group: dict[str, list
         "crc_mismatches_sample": mismatches[:20],
         "missing_symbols_count": len(missing),
         "missing_symbols_sample": missing[:20],
+        "protected_symbols_count": len(protected),
+        "protected_symbols_sample": protected[:20],
         "groups": group_stats,
     }
 
 
-def build_sys_rel_path_map(sys_root: Path, release: str, kp5_dist_dir: Path) -> dict[str, Path]:
+def build_sys_rel_path_map(sys_root: Path, release: str, staged_dir: Path, kp6_dist_dir: Path) -> dict[str, Path]:
     rel_map: dict[str, Path] = {}
     for base in (sys_root / "lib/modules" / release, sys_root / release, sys_root):
         if (base / "kernel").is_dir():
@@ -321,14 +368,15 @@ def build_sys_rel_path_map(sys_root: Path, release: str, kp5_dist_dir: Path) -> 
             if rel_map:
                 return rel_map
 
-    kp5_arch = kp5_dist_dir / "system_dlkm_staging_archive.tar.gz"
     name_to_rel: dict[str, str] = {}
-    if kp5_arch.is_file():
-        with tarfile.open(kp5_arch, "r:gz") as tf:
-            for member in tf.getmembers():
-                if member.isfile() and member.name.endswith(".ko") and "/kernel/" in member.name:
-                    rel = member.name[member.name.index("kernel/"):]
-                    name_to_rel[Path(rel).name] = rel
+    for arch in (staged_dir / "system_dlkm_staging_archive.tar.gz", kp6_dist_dir / "system_dlkm_staging_archive.tar.gz"):
+        if arch.is_file():
+            with tarfile.open(arch, "r:gz") as tf:
+                for member in tf.getmembers():
+                    if member.isfile() and member.name.endswith(".ko") and "/kernel/" in member.name:
+                        rel = member.name[member.name.index("kernel/"):]
+                        name_to_rel[Path(rel).name] = rel
+            break
 
     for ko in sorted(sys_root.rglob("*.ko")):
         if "flatten" in ko.parts:
@@ -337,7 +385,7 @@ def build_sys_rel_path_map(sys_root: Path, release: str, kp5_dist_dir: Path) -> 
     return rel_map
 
 
-def resolve_inputs(mode: str, staged_dir: Path, kp5_dist_dir: Path, dt_dir: Path, work_dir: Path) -> dict:
+def resolve_inputs(mode: str, staged_dir: Path, kp6_dist_dir: Path, dt_dir: Path, work_dir: Path) -> dict:
     staged_ready = (
         (staged_dir / "Image").is_file()
         and (staged_dir / "vmlinux.symvers").is_file()
@@ -352,28 +400,30 @@ def resolve_inputs(mode: str, staged_dir: Path, kp5_dist_dir: Path, dt_dir: Path
     if use_staged:
         image_path = staged_dir / "Image"
         symvers_path = staged_dir / "vmlinux.symvers"
+        abi_path = staged_dir / "abi_symbollist"
         config_path = staged_dir / "common.config"
         if not config_path.is_file():
             config_path = staged_dir / ".config"
         if not config_path.is_file():
-            config_path = kp5_dist_dir / ".config"
+            config_path = kp6_dist_dir / ".config"
         release = extract_image_release(image_path)
-        sys_rel_map = build_sys_rel_path_map(staged_dir / "system_dlkm", release, kp5_dist_dir)
+        sys_rel_map = build_sys_rel_path_map(staged_dir / "system_dlkm", release, staged_dir, kp6_dist_dir)
         vendor_kos = sorted((staged_dir / "vendor_all").glob("*.ko"))
         resolved_mode = "staged"
     else:
-        image_path = kp5_dist_dir / "Image"
-        symvers_path = kp5_dist_dir / "vmlinux.symvers"
-        config_path = kp5_dist_dir / ".config"
+        image_path = kp6_dist_dir / "Image"
+        symvers_path = kp6_dist_dir / "vmlinux.symvers"
+        abi_path = kp6_dist_dir / "abi_symbollist"
+        config_path = kp6_dist_dir / ".config"
         release = extract_image_release(image_path)
-        sys_extract = work_dir / "kp5_sys_extract"
+        sys_extract = work_dir / "kp6_sys_extract"
         if sys_extract.exists():
             shutil.rmtree(sys_extract)
         sys_extract.mkdir(parents=True)
-        with tarfile.open(kp5_dist_dir / "system_dlkm_staging_archive.tar.gz", "r:gz") as tf:
+        with tarfile.open(kp6_dist_dir / "system_dlkm_staging_archive.tar.gz", "r:gz") as tf:
             tf.extractall(sys_extract, filter="tar")
-        sys_rel_map = build_sys_rel_path_map(sys_extract, release, kp5_dist_dir)
-        vendor_kos = sorted(kp5_dist_dir.glob("*.ko"))
+        sys_rel_map = build_sys_rel_path_map(sys_extract, release, staged_dir, kp6_dist_dir)
+        vendor_kos = sorted(kp6_dist_dir.glob("*.ko"))
         resolved_mode = "dry-run"
 
     return {
@@ -381,6 +431,7 @@ def resolve_inputs(mode: str, staged_dir: Path, kp5_dist_dir: Path, dt_dir: Path
         "release": release,
         "image": image_path,
         "symvers": symvers_path,
+        "abi": abi_path if abi_path.is_file() else None,
         "config": config_path,
         "dtb": dt_dir / "dtb.img",
         "dtbo": dt_dir / "dtbo.img",
@@ -688,7 +739,7 @@ def rewrite_recovery_cpio(src_cpio: Path, dst_cpio: Path, new_mod_dir: Path) -> 
     return {
         "kept_rootfs_entries": kept_entries,
         "dropped_old_module_entries": dropped_old_mod_entries,
-        "added_6_12_module_entries": added_files,
+        "added_6_18_module_entries": added_files,
         "cpio_bytes": len(out),
     }
 
@@ -806,6 +857,7 @@ timeout 180 qemu-system-aarch64 \
         "kernel_bug": r"kernel BUG at|BUG: failure",
         "kernel_warn_or_trace": r"Call trace:|WARNING:",
         "crc_mismatch": r"disagrees about version of symbol",
+        "protected_symbol": r"Cannot use protected symbol",
         "invalid_format": r"Invalid module format|Exec format error",
     }.items():
         hits = [ln for ln in log_text.splitlines() if re.search(pat, ln)]
@@ -824,7 +876,7 @@ timeout 180 qemu-system-aarch64 \
 
     cascaded_unknown, unexplained_unknown = [], []
     for ln in log_text.splitlines():
-        m_unk = re.search(r"Unknown symbol (\S+) \(err", ln)
+        m_unk = re.search(r"(?:Unknown|Unresolved) symbol (\S+) \(err", ln)
         if m_unk:
             (cascaded_unknown if m_unk.group(1) in unloaded_parent_syms else unexplained_unknown).append(ln)
     if unexplained_unknown:
@@ -872,11 +924,18 @@ def _default_rom_dir() -> Path:
     return PROJECT_ROOT / "rom"
 
 
-def _default_kp5_dir() -> Path:
-    for cand in (REPO_ROOT / "kernel-6.12/kp5", REPO_ROOT / "kp5", PROJECT_ROOT / "kp5"):
+def _default_kp6_dir() -> Path:
+    for cand in (REPO_ROOT / "kernel-6.18/kp6", REPO_ROOT / "kp6", PROJECT_ROOT / "kp6"):
         if cand.is_dir():
             return cand
-    return REPO_ROOT / "kp5"
+    return REPO_ROOT / "kp6"
+
+
+def _default_staged_dir() -> Path:
+    for cand in (REPO_ROOT / "out-6.18/staged-modules", REPO_ROOT / "kernel-6.18/staged-modules"):
+        if cand.is_dir():
+            return cand
+    return REPO_ROOT / "out-6.18/staged-modules"
 
 
 def _default_keys_dir() -> Path:
@@ -918,65 +977,66 @@ def main() -> int:
     parser.add_argument("--mode", choices=["auto", "staged", "dry-run"], default="staged")
     parser.add_argument("--skip-qemu", action="store_true", help="Skip live QEMU smoke test")
     parser.add_argument(
-        "--rom-dir", "--yaap-dir", dest="yaap_dir", type=Path, default=_default_rom_dir(),
+        "--boot-guard-sec", type=int, default=0,
+        help="mi_md_kmsg.boot_guard_sec cmdline parameter (0 for production release, >0 for bringup guard)",
+    )
+    parser.add_argument(
+        "--rom-dir", "--yaap-dir", dest="rom_dir", type=Path, default=_default_rom_dir(),
         help="Synced Android ROM build root (YAAP, LineageOS, AOSP, etc.)",
     )
-    parser.add_argument("--kp5-dir", type=Path, default=_default_kp5_dir(), help="KP5 workspace root")
-    parser.add_argument("--staged-dir", type=Path, default=REPO_ROOT / "out-6.12/staged-modules", help="Staged 6.12 artifacts dir")
+    parser.add_argument("--kp6-dir", "--kp5-dir", dest="kp6_dir", type=Path, default=_default_kp6_dir(), help="KP6 workspace root")
+    parser.add_argument("--staged-dir", type=Path, default=_default_staged_dir(), help="Staged 6.18 artifacts dir")
     parser.add_argument("--dt-dir", type=Path, default=KERNEL_DIR / "devicetree-houji/out", help="Built DT output dir")
     parser.add_argument("--keys-dir", type=Path, default=_default_keys_dir(), help="Signing keys dir containing avb.pem")
     parser.add_argument("--target-files", type=Path, help="Extracted Android target_files intermediate dir")
     parser.add_argument("--template-dir", type=Path, help="Dir containing baseline vendor_boot/recovery/system_dlkm/vendor_dlkm images")
-    parser.add_argument("--out-dir", type=Path, default=REPO_ROOT / "out-6.12/images", help="Output images dir")
-    parser.add_argument("--work-dir", type=Path, default=REPO_ROOT / "out-6.12/work", help="Scratch work dir")
+    parser.add_argument("--out-dir", type=Path, default=REPO_ROOT / "out-6.18/images", help="Output images dir")
+    parser.add_argument("--work-dir", type=Path, default=REPO_ROOT / "out-6.18/work", help="Scratch work dir")
     parser.add_argument("--fingerprint", default=None, help="Build fingerprint embedded in AVB properties (auto-detected from target_files)")
     args = parser.parse_args()
 
-    yaap_dir = args.yaap_dir.resolve()
-    kp5_dir = args.kp5_dir.resolve()
+    if args.boot_guard_sec < 0:
+        raise ValueError(f"--boot-guard-sec must be >= 0, got {args.boot_guard_sec}")
+
+    rom_dir = args.rom_dir.resolve()
+    kp6_dir = args.kp6_dir.resolve()
     staged_dir = args.staged_dir.resolve()
     dt_dir = args.dt_dir.resolve()
     keys_dir = args.keys_dir.resolve()
-    target_files_dir = (
-        args.target_files
-        or _discover_target_files_dir(yaap_dir)
-    ).resolve()
+    target_files_dir = (args.target_files or _discover_target_files_dir(rom_dir)).resolve()
     args.fingerprint = args.fingerprint or _detect_fingerprint(target_files_dir)
     template_dir = (args.template_dir or (target_files_dir / "IMAGES")).resolve()
     out_images_dir = args.out_dir.resolve()
     work_dir = args.work_dir.resolve()
 
-    host_bin = yaap_dir / "out/host/linux-x86/bin"
-    host_lib64 = yaap_dir / "out/host/linux-x86/lib64"
+    host_bin = rom_dir / "out/host/linux-x86/bin"
+    host_lib64 = rom_dir / "out/host/linux-x86/lib64"
     file_contexts_bin = target_files_dir / "META/file_contexts.bin"
     avb_key_pem = keys_dir / "avb.pem"
-    kp5_dist_dir = kp5_dir / "kernel_platform/out/msm-kernel-pineapple-perf/dist"
-    strip_bin = find_llvm_strip(kp5_dir)
+    kp6_dist_dir = kp6_dir / "out/msm-kernel-pineapple-perf/dist"
+    strip_bin = find_llvm_strip(kp6_dir, rom_dir)
 
     env = host_env(host_bin, host_lib64)
     out_images_dir.mkdir(parents=True, exist_ok=True)
     work_dir.mkdir(parents=True, exist_ok=True)
 
-    # 1. Extract AVB public key from user-supplied avb.pem
     pub_bin = work_dir / "avb_pubkey.bin"
     pub_pem = work_dir / "avb_pubkey.pem"
     run([host_bin / "avbtool", "extract_public_key", "--key", avb_key_pem, "--output", pub_bin], env=env)
     pub_sha1 = hashlib.sha1(pub_bin.read_bytes()).hexdigest()
     pub_pem.write_bytes(subprocess.run(["openssl", "rsa", "-in", str(avb_key_pem), "-pubout"], check=True, capture_output=True).stdout)
 
-    # 2. Resolve inputs & baseline templates
-    inp = resolve_inputs(args.mode, staged_dir, kp5_dist_dir, dt_dir, work_dir)
+    inp = resolve_inputs(args.mode, staged_dir, kp6_dist_dir, dt_dir, work_dir)
     release = inp["release"]
-    print(f"=== Assembling 6.12 images [mode={inp['mode']}, release={release}] ===", flush=True)
+    print(f"=== Assembling 6.18 images [mode={inp['mode']}, release={release}] ===", flush=True)
     tmpl = extract_templates(template_dir, work_dir, host_bin, env)
     mod_map = json.loads(MODULE_MAP_PATH.read_text())
 
     cfg_text = inp["config"].read_text()
     pstore_ram_builtin = "CONFIG_PSTORE_RAM=y" in cfg_text
     pstore_ram_module = "CONFIG_PSTORE_RAM=m" in cfg_text
-    cfi_strict = ("CONFIG_CFI_CLANG=y" in cfg_text) and ("# CONFIG_CFI_PERMISSIVE is not set" in cfg_text)
+    cfi_strict = (("CONFIG_CFI=y" in cfg_text) or ("CONFIG_CFI_CLANG=y" in cfg_text)) and ("# CONFIG_CFI_PERMISSIVE is not set" in cfg_text)
 
-    # 3. Parse ELF module metadata & filter dead/non-production modules
     raw_sys_metas = [parse_ko_metadata(p) for p in inp["sys_rel_map"].values()]
     raw_vendor_metas = [parse_ko_metadata(p) for p in inp["vendor_kos"]]
 
@@ -1013,11 +1073,10 @@ def main() -> int:
         else:
             vendor_metas_active.append(m)
 
-    kmi_report = verify_kmi_and_vermagic(inp["symvers"], {"system_dlkm": sys_metas, "vendor_all": vendor_metas_active}, release)
+    kmi_report = verify_kmi_and_vermagic(inp["symvers"], inp["abi"], {"system_dlkm": sys_metas, "vendor_all": vendor_metas_active}, release)
     if not kmi_report["ok"]:
-        raise RuntimeError(f"KMI/vermagic verification failed: {json.dumps(kmi_report, indent=2)}")
+        raise RuntimeError(f"KMI/vermagic/ABI verification failed: {json.dumps(kmi_report, indent=2)}")
 
-    # 4. Stage-1 & Recovery transitive closure
     all_pool_metas = {m["filename"]: m for m in vendor_metas_active}
     sys_meta_by_name = {m["filename"]: m for m in sys_metas}
     combined_pool = {**sys_meta_by_name, **all_pool_metas}
@@ -1027,7 +1086,7 @@ def main() -> int:
     def map_stock_list(stock_names: list[str]) -> list[str]:
         mapped = []
         for s in stock_names:
-            for t in STOCK_6_1_TO_6_12_MAP.get(s, [s]):
+            for t in STOCK_6_1_TO_6_18_MAP.get(s, [s]):
                 fn = norm_to_pool_fn.get(norm_mod(t))
                 if fn and fn not in mapped:
                     mapped.append(fn)
@@ -1052,7 +1111,7 @@ def main() -> int:
     for fn in map_stock_list(mod_map["load_lists"]["stage1_vendor_ramdisk"]):
         if fn not in stage1_seeds:
             stage1_seeds.append(fn)
-    for fn in ESSENTIAL_STAGE1_6_12:
+    for fn in ESSENTIAL_STAGE1_6_18:
         pfn = norm_to_pool_fn.get(norm_mod(fn))
         if pfn and pfn not in stage1_seeds:
             stage1_seeds.append(pfn)
@@ -1063,7 +1122,7 @@ def main() -> int:
     for fn in map_stock_list(mod_map["load_lists"]["stage1_vendor_ramdisk_recovery"]):
         if fn not in recovery_seeds:
             recovery_seeds.append(fn)
-    for fn in ESSENTIAL_RECOVERY_6_12:
+    for fn in ESSENTIAL_RECOVERY_6_18:
         pfn = norm_to_pool_fn.get(norm_mod(fn))
         if pfn and pfn not in recovery_seeds:
             recovery_seeds.append(pfn)
@@ -1123,7 +1182,6 @@ def main() -> int:
     assert_crm_before_consumers(stage1_load_order, "vendor_ramdisk modules.load")
     assert_crm_before_consumers(recovery_load_order, "vendor_ramdisk modules.load.recovery")
 
-    # 5. Build boot.img, dtbo.img, vendor_boot.img, recovery.img
     boot_out = out_images_dir / "boot.img"
     run([host_bin / "mkbootimg", "--header_version", "4", "--os_version", "17.0.0", "--os_patch_level", "2026-11", "--kernel", inp["image"], "--cmdline", "", "--output", boot_out], env=env)
     boot_orig_size = boot_out.stat().st_size
@@ -1186,9 +1244,9 @@ def main() -> int:
 
     vendor_cmdline = " ".join(
         tok for tok in tmpl["vendor_cmdline"].split()
-        if not tok.startswith(("swinfo.fingerprint=", "mtdoops.fingerprint=", "module_blacklist="))
+        if not tok.startswith(("swinfo.fingerprint=", "mtdoops.fingerprint=", "module_blacklist=", "mi_md_kmsg.boot_guard_sec="))
     )
-    for tok in EXTRA_VENDOR_CMDLINE.split():
+    for tok in f"{EXTRA_VENDOR_CMDLINE} mi_md_kmsg.boot_guard_sec={args.boot_guard_sec}".split():
         if tok not in vendor_cmdline.split():
             vendor_cmdline = f"{vendor_cmdline} {tok}"
 
@@ -1235,7 +1293,6 @@ def main() -> int:
         "--prop", f"com.android.build.recovery.fingerprint:{args.fingerprint}",
     ], env=env)
 
-    # 6. Build system_dlkm.img & vendor_dlkm.img
     sys_stage = work_dir / "system_dlkm_stage"
     if sys_stage.exists():
         shutil.rmtree(sys_stage)
@@ -1284,7 +1341,7 @@ def main() -> int:
         copy_ko_for_vendor(combined_pool[fn]["path"], vdlkm_mod_dir / fn, strip_bin)
 
     stage2_seeds = map_stock_list(mod_map["load_lists"]["stage2_vendor_dlkm"])
-    for fn in ESSENTIAL_STAGE1_6_12 + [
+    for fn in ESSENTIAL_STAGE1_6_18 + [
         "xiaomi_touch.ko", "synaptics_tcm2.ko", "goodix_fod.ko", "nxp-nci.ko",
         "ir-spi.ko", "xiaomi_wifi_gpio.ko", "cs35l41_dlkm.ko", "swr_haptics_dlkm.ko",
         "btfmcodec.ko", "governor_gpubw_mon.ko", "governor_msm_adreno_tz.ko",
@@ -1311,10 +1368,26 @@ def main() -> int:
         "virtio_pci_legacy_dev", "virtio_pci_modern_dev", "vmw_vsock_virtio_transport",
         "vmw_vsock_virtio_transport_common", "vsock", "vsock_diag",
         "xhci_pci_renesas", "snd_hda_codec_hdmi", "usbmon",
+        "coresight", "coresight_etm4x", "coresight_funnel", "coresight_replicator",
+        "coresight_trbe", "coresight_tmc", "coresight_stm", "coresight_cti",
+        "coresight_catu", "coresight_tpiu", "coresight_etb10", "coresight_tpdm",
+        "coresight_tpda", "coresight_dummy", "coresight_ctcu", "coresight_cpu_debug",
+        "coresight_kunit_tests",
+        "thunderbolt", "dwc_pcie_pmu",
+        "binder_alloc_kunit", "wrapfd_kunit", "test_rtc_lib",
+        "kunit", "kunit_test", "kunit_example_test",
+        "clk_gate_test", "clk_kunit_helpers", "clk_test",
+        "dev_addr_lists_test", "ext4_inode_test", "fat_test", "hid_uclogic_test",
+        "iio_test_format", "input_test", "of_kunit_helpers", "platform_test",
+        "regmap_kunit", "regmap_ram", "regmap_raw_ram",
+        "soc_topology_test", "soc_utils_test", "time_test",
     ):
         if extra_bl not in sys_bl_existing:
             sys_bl_lines.append(f"blocklist {extra_bl}")
             sys_bl_existing.add(extra_bl)
+    for ln in sys_bl_lines:
+        if ln.startswith("#") and "blocklist" in ln.lower():
+            raise RuntimeError(f"Unsafe comment in system_dlkm.modules.blocklist: {ln}")
     (vdlkm_mod_dir / "system_dlkm.modules.blocklist").write_text("\n".join(sys_bl_lines) + "\n")
     for p in vdlkm_stage.rglob("*"):
         os.chmod(p, 0o755 if p.is_dir() else 0o644)
@@ -1325,7 +1398,6 @@ def main() -> int:
         host_bin, file_contexts_bin, args.fingerprint, env,
     )
 
-    # 7. Build vbmeta_system.img & vbmeta.img + Gate 1..4 verification
     tf_imgs = target_files_dir / "IMAGES"
     vbmeta_sys_out = out_images_dir / "vbmeta_system.img"
     run([
@@ -1392,10 +1464,11 @@ def main() -> int:
         "status": "PASS" if overall_pass else "FAIL",
         "mode": inp["mode"],
         "kernel_release": release,
+        "boot_guard_sec": args.boot_guard_sec,
         "strict_gki_2_0": {
             "config_pstore_ram_builtin": pstore_ram_builtin,
             "config_pstore_ram_module": pstore_ram_module,
-            "config_cfi_clang_strict": cfi_strict,
+            "config_cfi_strict": cfi_strict,
         },
         "images": {
             "boot.img": {"path": str(boot_out), "original_bytes": boot_orig_size, "final_bytes": boot_out.stat().st_size, "sha256": sha256_file(boot_out)},

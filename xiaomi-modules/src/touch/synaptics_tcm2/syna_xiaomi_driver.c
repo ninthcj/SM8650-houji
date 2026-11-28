@@ -1,3 +1,4 @@
+#include <linux/of.h>
 #include <linux/soc/qcom/panel_event_notifier.h>
 #include <linux/spi/spi.h>
 #include <linux/vmalloc.h>
@@ -1600,7 +1601,9 @@ static int syna_tcm_touch_doze_analysis(int input)
 			}
 		break;
 		case TOUCH_5:
-			result = gpio_get_value(attn->irq_gpio) == 0 ? 0 : 1;
+			result = attn->irq_gpiod ?
+				(gpiod_get_raw_value(attn->irq_gpiod) == 0 ? 0 : 1) :
+				-EINVAL;
 		break;
 	#ifdef TOUCH_SENSORHUB_SUPPORT
 		case TOUCH_10:

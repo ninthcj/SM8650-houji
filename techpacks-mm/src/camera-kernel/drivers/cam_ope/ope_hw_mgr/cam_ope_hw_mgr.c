@@ -1823,7 +1823,7 @@ end:
 	mutex_unlock(&ctx->ctx_mutex);
 }
 
-int32_t cam_ope_hw_mgr_cb(uint32_t irq_status, void *data)
+static int32_t cam_ope_hw_mgr_cb(uint32_t irq_status, void *data)
 {
 	int32_t rc = 0;
 	unsigned long flags;

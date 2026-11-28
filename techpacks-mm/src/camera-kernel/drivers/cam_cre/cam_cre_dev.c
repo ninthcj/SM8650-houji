@@ -14,6 +14,7 @@
 #include "cam_hw_mgr_intf.h"
 #include "cam_cre_hw_mgr.h"
 #include "cam_cre_dev.h"
+#include "cre_dev_intf.h"
 #include "cam_debug_util.h"
 #include "cam_smmu_api.h"
 #include "camera_main.h"

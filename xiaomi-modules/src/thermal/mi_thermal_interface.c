@@ -21,6 +21,7 @@
 #include <linux/of.h>
 #include <linux/pm_qos.h>
 #include <linux/power_supply.h>
+#include <linux/rcupdate.h>
 #include <linux/slab.h>
 #include <linux/soc/qcom/panel_event_notifier.h>
 #include <linux/string.h>
@@ -565,7 +566,16 @@ static void create_thermal_message_node(void)
 	struct kobject *thermal_kobj = NULL;
 	int ret;
 
-	sysfs_sd = kernel_kobj->sd ? kernel_kobj->sd->parent : NULL;
+	/*
+	 * kernfs_get_parent()/kernfs_get() are not in the GKI 6.18 KMI export
+	 * list; kernel_kobj (/sys/kernel) is never reparented and its parent
+	 * is the permanent sysfs root node, so RCU-dereferencing __parent
+	 * before sleeping in kernfs_find_and_get() is safe without a ref.
+	 */
+	rcu_read_lock();
+	sysfs_sd = (kernel_kobj && kernel_kobj->sd) ?
+		rcu_dereference(kernel_kobj->sd->__parent) : NULL;
+	rcu_read_unlock();
 	if (!sysfs_sd) {
 		pr_err("%s: sysfs_sd is NULL\n", __func__);
 		return;

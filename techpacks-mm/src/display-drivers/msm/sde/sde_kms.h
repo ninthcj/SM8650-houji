@@ -792,4 +792,7 @@ int sde_kms_vm_primary_prepare_commit(struct sde_kms *sde_kms,
 					   struct drm_atomic_state *state);
 
 void sde_kms_add_data_to_minidump_va(struct sde_kms *sde_kms);
+
+int _sde_kms_get_tvm_inclusion_mem(struct sde_mdss_cfg *catalog,
+		struct list_head *mem_list);
 #endif /* __sde_kms_H__ */

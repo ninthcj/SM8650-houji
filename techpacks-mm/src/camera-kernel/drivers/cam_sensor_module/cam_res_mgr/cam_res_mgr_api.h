@@ -54,8 +54,10 @@ void cam_res_mgr_led_trigger_event(struct led_trigger *trig,
  * @size      : GPIO table size
  * @return Status of operation. False if not shared, true otherwise.
  */
+struct cam_gpio;
+
 bool cam_res_mgr_util_check_if_gpio_is_shared(
-	struct gpio *gpio_tbl, uint8_t size);
+	struct cam_gpio *gpio_tbl, uint8_t size);
 
 /**
  * @brief: Request a gpio
@@ -85,7 +87,7 @@ int cam_res_mgr_gpio_request(struct device *dev, unsigned int gpio,
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 void cam_res_mgr_gpio_free_arry(struct device *dev,
-	const struct gpio *array, size_t num);
+	const struct cam_gpio *array, size_t num);
 
 /**
  * @brief: Set GPIO power level

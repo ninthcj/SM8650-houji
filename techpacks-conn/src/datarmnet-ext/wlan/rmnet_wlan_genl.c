@@ -633,5 +633,6 @@ static void __exit rmnet_wlan_genl_exit(void)
 
 
 MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("QTI RmNet WLAN Driver");
 module_init(rmnet_wlan_genl_init);
 module_exit(rmnet_wlan_genl_exit);

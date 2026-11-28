@@ -1216,4 +1216,9 @@ void sde_crtc_calc_vpadding_param(struct drm_crtc_state *state, u32 crtc_y, u32 
  */
 void sde_crtc_backlight_notify(struct drm_crtc *crtc, u32 bl_val, u32 bl_max);
 
+struct sde_connector_state;
+
+struct sde_connector_state *_sde_crtc_get_sde_connector_state(struct drm_crtc *crtc,
+		struct drm_atomic_state *state);
+
 #endif /* _SDE_CRTC_H_ */

@@ -302,4 +302,5 @@ int cam_mem_mgr_retrieve_buffer_from_presil(int32_t buf_handle,
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 int cam_mem_mgr_dump_user(struct cam_dump_req_cmd *dump_req);
+bool cam_mem_mgr_ubwc_p_heap_supported(void);
 #endif /* _CAM_MEM_MGR_H_ */

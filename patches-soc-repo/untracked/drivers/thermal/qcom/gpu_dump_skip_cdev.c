@@ -148,3 +148,4 @@ static struct platform_driver gpu_dump_skip_driver = {
 };
 module_platform_driver(gpu_dump_skip_driver);
 MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("Qualcomm Technologies, Inc. GPU dump skip cooling device driver");

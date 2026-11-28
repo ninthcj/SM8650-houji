@@ -184,7 +184,7 @@ bool kgsl_hw_fence_tx_slot_available(struct kgsl_device *device, u32 pending_hw_
 	return false;
 }
 
-void _hw_fence_destroy(struct kgsl_sync_fence *kfence)
+static void _hw_fence_destroy(struct kgsl_sync_fence *kfence)
 {
 	synx_release(kgsl_synx.handle, kfence->hw_fence_index);
 }
@@ -327,7 +327,7 @@ bool kgsl_hw_fence_tx_slot_available(struct kgsl_device *device, u32 pending_hw_
 	return false;
 }
 
-void _hw_fence_destroy(struct kgsl_sync_fence *kfence)
+static void _hw_fence_destroy(struct kgsl_sync_fence *kfence)
 {
 	msm_hw_fence_destroy(kgsl_msm_hw_fence.handle, &kfence->fence);
 }
@@ -598,7 +598,7 @@ out:
 	return ret;
 }
 
-static void kgsl_sync_timeline_value_str(struct dma_fence *fence,
+void kgsl_sync_timeline_value_str(struct dma_fence *fence,
 					char *str, int size)
 {
 	struct kgsl_sync_fence *kfence = (struct kgsl_sync_fence *)fence;
@@ -760,9 +760,6 @@ static const struct dma_fence_ops kgsl_sync_fence_ops = {
 	.signaled = kgsl_sync_fence_has_signaled,
 	.wait = dma_fence_default_wait,
 	.release = kgsl_sync_fence_release,
-
-	.fence_value_str = kgsl_sync_fence_value_str,
-	.timeline_value_str = kgsl_sync_timeline_value_str,
 };
 
 static void kgsl_sync_fence_callback(struct dma_fence *fence,
@@ -853,16 +850,19 @@ static void kgsl_count_hw_fences(struct kgsl_drawobj_sync_event *event, struct d
 		set_bit(KGSL_SYNCOBJ_SW, &syncobj->flags);
 }
 
+static const struct dma_fence_ops kgsl_syncsource_fence_ops;
+
 void kgsl_get_fence_name(struct dma_fence *f, char *name, u32 max_size)
 {
 	int len = scnprintf(name, max_size, "%s %s", f->ops->get_driver_name(f),
 			f->ops->get_timeline_name(f));
 
-	if (f->ops->fence_value_str) {
+	if (f->ops == &kgsl_sync_fence_ops) {
 		len += scnprintf(name + len, max_size - len, ": ");
-		f->ops->fence_value_str(f, name + len, max_size - len);
+		kgsl_sync_fence_value_str(f, name + len, max_size - len);
+	} else if (f->ops == &kgsl_syncsource_fence_ops) {
+		scnprintf(name + len, max_size - len, ": %llu", f->context);
 	}
-
 }
 void kgsl_get_fence_info(struct kgsl_drawobj_sync_event *event)
 {
@@ -971,8 +971,6 @@ struct kgsl_syncsource_fence {
 	struct kgsl_syncsource *parent;
 	struct list_head child_list;
 };
-
-static const struct dma_fence_ops kgsl_syncsource_fence_ops;
 
 long kgsl_ioctl_syncsource_create(struct kgsl_device_private *dev_priv,
 					unsigned int cmd, void *data)
@@ -1292,23 +1290,11 @@ static const char *kgsl_syncsource_driver_name(struct dma_fence *fence)
 	return "kgsl-syncsource-timeline";
 }
 
-static void kgsl_syncsource_fence_value_str(struct dma_fence *fence,
-						char *str, int size)
-{
-	/*
-	 * Each fence is independent of the others on the same timeline.
-	 * We use a different context for each of them.
-	 */
-	snprintf(str, size, "%llu", fence->context);
-}
-
 static const struct dma_fence_ops kgsl_syncsource_fence_ops = {
 	.get_driver_name = kgsl_syncsource_driver_name,
 	.get_timeline_name = kgsl_syncsource_get_timeline_name,
 	.enable_signaling = kgsl_syncsource_enable_signaling,
 	.wait = dma_fence_default_wait,
 	.release = kgsl_syncsource_fence_release,
-
-	.fence_value_str = kgsl_syncsource_fence_value_str,
 };
 

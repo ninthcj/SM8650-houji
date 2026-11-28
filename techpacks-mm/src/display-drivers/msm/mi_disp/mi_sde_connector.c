@@ -258,7 +258,7 @@ static int mi_sde_connector_populate_mi_mode_info(struct drm_connector *conn,
 }
 
 
-int mi_sde_connector_set_blob_data(struct drm_connector *conn,
+static int mi_sde_connector_set_blob_data(struct drm_connector *conn,
 		enum msm_mdp_conn_property prop_id)
 {
 	struct sde_kms_info *info;

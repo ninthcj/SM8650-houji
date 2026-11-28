@@ -8,7 +8,9 @@
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
 #include <linux/regulator/consumer.h>
+#if IS_ENABLED(CONFIG_REGMAP_QTI_DEBUGFS)
 #include <linux/qti-regmap-debugfs.h>
+#endif
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -1022,7 +1024,9 @@ static int qmp_dmic_component_probe(struct snd_soc_component *component)
 	qmp_dmic->component = component;
 	snd_soc_component_init_regmap(component, qmp_dmic->regmap);
 
+#if IS_ENABLED(CONFIG_REGMAP_QTI_DEBUGFS)
 	devm_regmap_qti_debugfs_register(qmp_dmic->dev, qmp_dmic->regmap);
+#endif
 
 	snd_soc_dapm_ignore_suspend(dapm, qmp_dmic->dai_driver[0].capture.stream_name);
 	snd_soc_dapm_ignore_suspend(dapm, qmp_dmic->dai_driver[1].capture.stream_name);
@@ -1049,7 +1053,9 @@ static void qmp_dmic_component_remove(struct snd_soc_component *component)
 	if (!qmp_dmic)
 		return;
 
+#if IS_ENABLED(CONFIG_REGMAP_QTI_DEBUGFS)
 	devm_regmap_qti_debugfs_unregister(qmp_dmic->regmap);
+#endif
 	snd_soc_component_exit_regmap(component);
 }
 

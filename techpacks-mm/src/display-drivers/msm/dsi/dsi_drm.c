@@ -185,6 +185,7 @@ static void dsi_convert_to_msm_mode(const struct dsi_display_mode *dsi_mode,
 }
 
 static int dsi_bridge_attach(struct drm_bridge *bridge,
+			struct drm_encoder *encoder,
 			enum drm_bridge_attach_flags flags)
 {
 	struct dsi_bridge *c_bridge = to_dsi_bridge(bridge);
@@ -635,7 +636,7 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 	return true;
 }
 
-u32 dsi_drm_get_dfps_maxfps(void *display)
+static u32 dsi_drm_get_dfps_maxfps(void *display)
 {
 	u32 dfps_maxfps = 0;
 	struct dsi_display *dsi_display = display;
@@ -1298,7 +1299,7 @@ end:
 }
 
 enum drm_mode_status dsi_conn_mode_valid(struct drm_connector *connector,
-		struct drm_display_mode *mode,
+		const struct drm_display_mode *mode,
 		void *display, const struct msm_resource_caps_info *avail_res)
 {
 	struct dsi_display_mode dsi_mode;

@@ -156,6 +156,8 @@ struct cam_sensor_ctrl_t {
 	bool                           hw_no_ops;
 };
 
+struct completion *cam_sensor_get_i3c_completion(uint32_t index);
+
 /**
  * @brief : API to register SENSOR hw to platform framework.
  * @return struct platform_device pointer on on success, or ERR_PTR() on error.

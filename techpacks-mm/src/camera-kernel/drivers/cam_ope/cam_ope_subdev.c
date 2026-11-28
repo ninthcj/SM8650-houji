@@ -23,6 +23,7 @@
 #include <media/cam_ope.h>
 #include "cam_req_mgr_dev.h"
 #include "cam_subdev.h"
+#include "ope_dev_intf.h"
 #include "cam_node.h"
 #include "cam_context.h"
 #include "cam_ope_context.h"

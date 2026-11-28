@@ -66,7 +66,7 @@ int msm_v4l2_open(struct file *filp)
 		trace_msm_v4l2_vidc_open("END", NULL);
 		return -ENOMEM;
 	}
-	filp->private_data = &(inst->fh);
+	v4l2_fh_add(&inst->fh, filp);
 	trace_msm_v4l2_vidc_open("END", inst);
 	return 0;
 }
@@ -84,8 +84,9 @@ int msm_v4l2_close(struct file *filp)
 
 	trace_msm_v4l2_vidc_close("START", inst);
 
+	/* Detach v4l2_fh while filp is still valid; kref cleanup only runs v4l2_fh_exit. */
+	v4l2_fh_del(&inst->fh, filp);
 	rc = msm_vidc_close(inst);
-	filp->private_data = NULL;
 	trace_msm_v4l2_vidc_close("END", NULL);
 	return rc;
 }
@@ -967,41 +968,6 @@ int msm_v4l2_enum_frameintervals(struct file *filp, void *fh,
 		goto unlock;
 	}
 	rc = msm_vidc_enum_frameintervals((void *)inst, fival);
-	if (rc)
-		goto unlock;
-
-unlock:
-	inst_unlock(inst, __func__);
-	client_unlock(inst, __func__);
-	put_inst(inst);
-
-	return rc;
-}
-
-int msm_v4l2_queryctrl(struct file *filp, void *fh,
-	struct v4l2_queryctrl *ctrl)
-{
-	struct msm_vidc_inst *inst = get_vidc_inst(filp, fh);
-	int rc = 0;
-
-	if (!ctrl) {
-		d_vpr_e("%s: invalid params\n", __func__);
-		return -EINVAL;
-	}
-	inst = get_inst_ref(g_core, inst);
-	if (!inst) {
-		d_vpr_e("%s: invalid instance\n", __func__);
-		return -EINVAL;
-	}
-
-	client_lock(inst, __func__);
-	inst_lock(inst, __func__);
-	if (is_session_error(inst)) {
-		i_vpr_e(inst, "%s: inst in error state\n", __func__);
-		rc = -EBUSY;
-		goto unlock;
-	}
-	rc = msm_vidc_query_ctrl((void *)inst, ctrl);
 	if (rc)
 		goto unlock;
 

@@ -259,5 +259,6 @@ static void __exit rmnet_sch_module_exit(void)
 }
 
 MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("QTI RmNet Scheduler Qdisc Driver");
 module_init(rmnet_sch_module_init);
 module_exit(rmnet_sch_module_exit);

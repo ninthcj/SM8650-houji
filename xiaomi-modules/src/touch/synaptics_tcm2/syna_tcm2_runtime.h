@@ -44,8 +44,7 @@
 #include <linux/module.h>
 #include <linux/input.h>
 #include <linux/delay.h>
-#include <linux/gpio.h>
-#include <linux/of_gpio.h>
+#include <linux/gpio/consumer.h>
 #include <linux/interrupt.h>
 #include <linux/init.h>
 #include <linux/major.h>

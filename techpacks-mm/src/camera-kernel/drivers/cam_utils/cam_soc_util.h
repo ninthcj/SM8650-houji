@@ -159,6 +159,12 @@ struct cam_soc_pinctrl_info {
 		CAM_SOC_MAX_PINCTRL_MAP];
 };
 
+struct cam_gpio {
+	unsigned int gpio;
+	unsigned long flags;
+	const char *label;
+};
+
 /**
  * struct cam_soc_gpio_data:   Information about the gpio pins
  *
@@ -169,9 +175,9 @@ struct cam_soc_pinctrl_info {
  * @cam_gpio_req_tbl_size:      It is size of requested gpios
  **/
 struct cam_soc_gpio_data {
-	struct gpio *cam_gpio_common_tbl;
+	struct cam_gpio *cam_gpio_common_tbl;
 	uint8_t cam_gpio_common_tbl_size;
-	struct gpio *cam_gpio_req_tbl;
+	struct cam_gpio *cam_gpio_req_tbl;
 	uint8_t cam_gpio_req_tbl_size;
 };
 

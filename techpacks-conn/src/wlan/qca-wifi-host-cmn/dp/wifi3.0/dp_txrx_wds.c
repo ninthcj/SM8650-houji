@@ -43,7 +43,7 @@
 #ifndef IPA_WDS_EASYMESH_FEATURE
 #ifdef WLAN_FEATURE_MULTI_AST_DEL
 
-void dp_peer_free_peer_ase_list(struct dp_soc *soc,
+static void dp_peer_free_peer_ase_list(struct dp_soc *soc,
 				struct peer_del_multi_wds_entries *wds_list)
 {
 	struct peer_wds_entry_list *wds_entry, *tmp_entry;

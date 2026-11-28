@@ -293,7 +293,7 @@ static int initialize_encoder_complexity_table(void)
 	return 0;
 }
 
-u32 get_bitrate_entry(u32 pixle_count)
+static u32 get_bitrate_entry(u32 pixle_count)
 {
 	u32 bitrate_entry = 0;
 

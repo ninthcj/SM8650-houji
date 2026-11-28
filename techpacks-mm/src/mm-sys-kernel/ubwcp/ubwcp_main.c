@@ -39,7 +39,7 @@
 #include <linux/qcom_scm.h>
 #endif
 
-MODULE_IMPORT_NS(DMA_BUF);
+MODULE_IMPORT_NS("DMA_BUF");
 
 #include "include/kernel/ubwcp.h"
 #include "ubwcp_hw.h"
@@ -3022,7 +3022,7 @@ static struct dma_buf *get_dma_buf_from_iova(unsigned long addr)
 	return ret_buf;
 }
 
-int ubwcp_iommu_fault_handler(struct iommu_domain *domain, struct device *dev,
+static int ubwcp_iommu_fault_handler(struct iommu_domain *domain, struct device *dev,
 		unsigned long iova, int flags, void *data)
 {
 	int ret = 0;
@@ -3572,7 +3572,7 @@ static const struct of_device_id ubwcp_dt_match[] = {
 	{}
 };
 
-struct platform_driver ubwcp_platform_driver = {
+static struct platform_driver ubwcp_platform_driver = {
 	.probe = ubwcp_probe,
 	.remove = ubwcp_remove,
 	.driver = {
@@ -3581,7 +3581,7 @@ struct platform_driver ubwcp_platform_driver = {
 	},
 };
 
-int ubwcp_init(void)
+static int ubwcp_init(void)
 {
 	int ret = 0;
 
@@ -3594,7 +3594,7 @@ int ubwcp_init(void)
 	return ret;
 }
 
-void ubwcp_exit(void)
+static void ubwcp_exit(void)
 {
 	platform_driver_unregister(&ubwcp_platform_driver);
 
@@ -3604,4 +3604,5 @@ void ubwcp_exit(void)
 module_init(ubwcp_init);
 module_exit(ubwcp_exit);
 
+MODULE_DESCRIPTION("QCOM UBWCP Driver");
 MODULE_LICENSE("GPL");

@@ -11,6 +11,7 @@
 #include <linux/sde_rsc.h>
 
 #include "msm_drv.h"
+#include "sde_encoder_dce.h"
 #include "sde_kms.h"
 #include <drm/drm_crtc.h>
 #include <drm/drm_crtc_helper.h>
@@ -826,7 +827,7 @@ static void _dce_vdc_disable(struct sde_encoder_virt *sde_enc)
 	 */
 }
 
-bool _dce_dsc_is_dirty(struct sde_encoder_virt *sde_enc)
+static bool _dce_dsc_is_dirty(struct sde_encoder_virt *sde_enc)
 {
 	int i;
 
@@ -842,7 +843,7 @@ bool _dce_dsc_is_dirty(struct sde_encoder_virt *sde_enc)
 	return false;
 }
 
-bool _dce_vdc_is_dirty(struct sde_encoder_virt *sde_enc)
+static bool _dce_vdc_is_dirty(struct sde_encoder_virt *sde_enc)
 {
 	int i;
 
@@ -877,7 +878,7 @@ static void _dce_helper_flush_dsc(struct sde_encoder_virt *sde_enc)
 	}
 }
 
-void _dce_helper_flush_vdc(struct sde_encoder_virt *sde_enc)
+static void _dce_helper_flush_vdc(struct sde_encoder_virt *sde_enc)
 {
 	int i;
 	struct sde_hw_ctl *hw_ctl = NULL;
@@ -972,19 +973,15 @@ void sde_encoder_dce_disable(struct sde_encoder_virt *sde_enc)
 		_dce_vdc_disable(sde_enc);
 }
 
-int sde_encoder_dce_flush(struct sde_encoder_virt *sde_enc)
+void sde_encoder_dce_flush(struct sde_encoder_virt *sde_enc)
 {
-	int rc = 0;
-
 	if (!sde_enc)
-		return -EINVAL;
+		return;
 
 	if (_dce_dsc_is_dirty(sde_enc))
 		_dce_helper_flush_dsc(sde_enc);
 	else if (_dce_vdc_is_dirty(sde_enc))
 		_dce_helper_flush_vdc(sde_enc);
-
-	return rc;
 }
 
 int sde_encoder_dce_setup(struct sde_encoder_virt *sde_enc,

@@ -82,7 +82,7 @@ static int cam_cre_init_hw_version(struct cam_hw_soc_info *soc_info,
 	return rc;
 }
 
-int cam_cre_register_cpas(struct cam_hw_soc_info *soc_info,
+static int cam_cre_register_cpas(struct cam_hw_soc_info *soc_info,
 	struct cam_cre_device_core_info *core_info,
 	uint32_t hw_idx)
 {
@@ -281,7 +281,7 @@ const static struct component_ops cam_cre_component_ops = {
 	.unbind = cam_cre_component_unbind,
 };
 
-int cam_cre_probe(struct platform_device *pdev)
+static int cam_cre_probe(struct platform_device *pdev)
 {
 	int rc = 0;
 

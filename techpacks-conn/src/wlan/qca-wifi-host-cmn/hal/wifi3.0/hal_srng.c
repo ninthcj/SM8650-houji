@@ -1275,7 +1275,7 @@ void hal_delayed_reg_write(struct hal_soc *hal_soc,
 #endif
 
 #ifdef HAL_SRNG_REG_HIS_DEBUG
-inline void hal_free_srng_history(struct hal_soc *hal)
+static inline void hal_free_srng_history(struct hal_soc *hal)
 {
 	int i;
 
@@ -1283,7 +1283,7 @@ inline void hal_free_srng_history(struct hal_soc *hal)
 		qdf_mem_free(hal->srng_list[i].reg_his_ctx);
 }
 
-inline bool hal_alloc_srng_history(struct hal_soc *hal)
+static inline bool hal_alloc_srng_history(struct hal_soc *hal)
 {
 	int i;
 
@@ -1300,11 +1300,11 @@ inline bool hal_alloc_srng_history(struct hal_soc *hal)
 	return true;
 }
 #else
-inline void hal_free_srng_history(struct hal_soc *hal)
+static inline void hal_free_srng_history(struct hal_soc *hal)
 {
 }
 
-inline bool hal_alloc_srng_history(struct hal_soc *hal)
+static inline bool hal_alloc_srng_history(struct hal_soc *hal)
 {
 	return true;
 }

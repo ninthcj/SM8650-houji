@@ -42,7 +42,7 @@ static struct dentry *debugfs_root;
 static char in_buffer[RW_BUFFER_SIZE], out_buffer[RW_BUFFER_SIZE];
 static struct cam_sensor_i2c_devices devices = {0};
 
-struct camera_io_master *cam_sensor_module_get_io_master(
+static struct camera_io_master *cam_sensor_module_get_io_master(
 	int device_type, int instance_number, bool *is_on)
 {
 	struct camera_io_master *io_master = NULL;

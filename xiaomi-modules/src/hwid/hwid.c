@@ -61,4 +61,5 @@ uint32_t get_hw_version_build(void)
 EXPORT_SYMBOL(get_hw_version_build);
 
 MODULE_AUTHOR("weixiaotian1@xiaomi.com");
+MODULE_DESCRIPTION("Xiaomi Hardware ID Driver");
 MODULE_LICENSE("GPL v2");

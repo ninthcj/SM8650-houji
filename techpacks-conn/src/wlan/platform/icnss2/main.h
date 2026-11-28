@@ -56,10 +56,6 @@
 /* Consecutive SOC wake request failures to trigger recovery */
 #define ICNSS_SOC_WAKE_RECOVERY_COUNT 5
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0))
-#define from_timer timer_container_of
-#endif
-
 extern uint64_t dynamic_feature_mask;
 
 enum icnss_bdf_type {
@@ -858,7 +854,7 @@ static inline int icnss_timer_delete(struct timer_list *timer)
 #else
 static inline int icnss_timer_delete(struct timer_list *timer)
 {
-	return del_timer(timer);
+	return timer_delete(timer);
 }
 #endif
 #endif

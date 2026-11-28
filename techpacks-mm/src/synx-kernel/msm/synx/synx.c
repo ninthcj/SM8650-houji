@@ -63,7 +63,7 @@ void synx_external_callback(s32 sync_obj, int status, void *data)
 }
 EXPORT_SYMBOL(synx_external_callback);
 
-void synx_fence_enable_handler(struct work_struct *cb_dispatch)
+static void synx_fence_enable_handler(struct work_struct *cb_dispatch)
 {
 	u32 h_synx, idx, status;
 	struct synx_fence_enable_data *synx_fence_enable_cb =
@@ -135,7 +135,7 @@ free:
 	kfree(synx_fence_enable_cb);
 }
 
-bool synx_fence_enable_signaling(struct dma_fence *fence)
+static bool synx_fence_enable_signaling(struct dma_fence *fence)
 {
 
 	struct synx_fence_enable_data *synx_fence_enable_cb;
@@ -156,7 +156,7 @@ bool synx_fence_enable_signaling(struct dma_fence *fence)
 	return true;
 }
 
-const char *synx_fence_driver_name(struct dma_fence *fence)
+static const char *synx_fence_driver_name(struct dma_fence *fence)
 {
 	return "Global Synx driver";
 }
@@ -414,7 +414,7 @@ fail:
 	return rc;
 }
 
-int synx_native_signal_core(struct synx_coredata *synx_obj,
+static int synx_native_signal_core(struct synx_coredata *synx_obj,
 	u32 status,
 	bool cb_signal,
 	u64 ext_sync_id)
@@ -630,7 +630,7 @@ fail:
 	return rc;
 }
 
-u32 synx_get_child_status(struct synx_coredata *synx_obj)
+static u32 synx_get_child_status(struct synx_coredata *synx_obj)
 {
 	u32 h_child = 0, i = 0;
 	u32 status = SYNX_DMA_FENCE_STATE_MAX - 1, child_status = SYNX_STATE_ACTIVE;
@@ -679,7 +679,7 @@ bail:
 	return status;
 }
 
-u32 synx_custom_get_status(struct synx_coredata *synx_obj, u32 status)
+static u32 synx_custom_get_status(struct synx_coredata *synx_obj, u32 status)
 {
 	u32 custom_status = status;
 	u32 parent_global_status =
@@ -989,7 +989,7 @@ static int synx_match_payload(struct synx_kernel_payload *cb_payload,
  * This function checks if the callback still exist in the reg_cbs_list
  * and queues the callback to kernel payload for dispatching it to client.
  */
-void synx_timer_handler(struct work_struct *cb_dispatch)
+static void synx_timer_handler(struct work_struct *cb_dispatch)
 {
 	struct synx_timer_cb_data *synx_timer_cb =
 		container_of(cb_dispatch, struct synx_timer_cb_data, cb_dispatch);
@@ -1027,7 +1027,7 @@ void synx_timer_handler(struct work_struct *cb_dispatch)
 #if (KERNEL_VERSION(6, 15, 0) <= LINUX_VERSION_CODE)
 			timer_delete(&synx_cb->synx_timer);
 #else
-			del_timer(&synx_cb->synx_timer);
+			timer_delete(&synx_cb->synx_timer);
 #endif
 			list_del_init(&synx_cb->node);
 			queue_work(synx_dev->wq_cb, &synx_cb->cb_dispatch);
@@ -1045,7 +1045,7 @@ free:
 
 
 /* Timer Callback function. This will be called when timer expires */
-void synx_timer_cb(struct timer_list *data)
+static void synx_timer_cb(struct timer_list *data)
 {
 	struct synx_cb_data *synx_cb =
 		container_of(data, struct synx_cb_data, synx_timer);
@@ -1279,7 +1279,7 @@ int synx_internal_cancel_async_wait(
 #if (KERNEL_VERSION(6, 15, 0) <= LINUX_VERSION_CODE)
 				timer_delete_sync(&synx_cb->synx_timer);
 #else
-				del_timer_sync(&synx_cb->synx_timer);
+				timer_delete_sync(&synx_cb->synx_timer);
 #endif
 		}
 		switch (ret) {
@@ -3029,7 +3029,7 @@ int synx_deregister_ops(
 }
 EXPORT_SYMBOL(synx_deregister_ops);
 
-void synx_ipc_handler(struct work_struct *cb_dispatch)
+static void synx_ipc_handler(struct work_struct *cb_dispatch)
 {
 	struct synx_signal_cb *signal_cb =
 		container_of(cb_dispatch, struct synx_signal_cb, cb_dispatch);
@@ -3129,7 +3129,7 @@ int synx_internal_recover(enum synx_client_id id)
 	return synx_global_recover(core_id);
 }
 
-int synx_internal_notify_recover(enum synx_core_id id)
+static int synx_internal_notify_recover(enum synx_core_id id)
 {
 	if (IS_ERR_OR_NULL(hwfence_shared_ops.signal_fence)) {
 		dprintk(SYNX_ERR, "interop hwfence_signal_fence API not available");
@@ -3146,7 +3146,7 @@ int synx_internal_notify_recover(enum synx_core_id id)
 	return synx_global_recover_interop(id, &hwfence_shared_ops);
 }
 
-int synx_internal_signal_fence(enum synx_core_id id, bool is_core_ssr,
+static int synx_internal_signal_fence(enum synx_core_id id, bool is_core_ssr,
 	u32 h_synx, enum synx_signal_status status)
 {
 	if (id != SYNX_CORE_SOCCP) {

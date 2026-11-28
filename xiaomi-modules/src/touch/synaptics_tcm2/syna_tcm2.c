@@ -37,6 +37,7 @@
  * through TouchComm command-response protocol.
  */
 
+#include <linux/of.h>
 #include "syna_tcm2.h"
 #include "syna_tcm2_cdev.h"
 #include "syna_tcm2_platform.h"
@@ -806,7 +807,8 @@ static irqreturn_t syna_dev_isr(int irq, void *data)
 		sched_setscheduler_nocheck(touch_task, SCHED_FIFO, &par);
 	}
 	/*cpu_latency_qos_add_request(&tcm->pm_qos_req_irq, 0);*/
-	if (unlikely(gpio_get_value(attn->irq_gpio) != attn->irq_on_state))
+	if (unlikely(!attn->irq_gpiod ||
+		     gpiod_get_raw_value(attn->irq_gpiod) != attn->irq_on_state))
 		goto exit;
 
 	tcm->isr_pid = current->pid;
@@ -886,13 +888,13 @@ static int syna_dev_request_irq(struct syna_tcm *tcm)
 	}
 #endif
 
-	if (attn->irq_gpio < 0) {
+	if (!attn->irq_gpiod) {
 		LOGE("Invalid IRQ GPIO\n");
 		retval = -EINVAL;
 		goto exit;
 	}
 
-	attn->irq_id = gpio_to_irq(attn->irq_gpio);
+	attn->irq_id = gpiod_to_irq(attn->irq_gpiod);
 
 #ifdef DEV_MANAGED_API
 	retval = devm_request_threaded_irq(dev,

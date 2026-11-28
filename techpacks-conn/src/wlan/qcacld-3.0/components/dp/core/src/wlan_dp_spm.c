@@ -323,7 +323,7 @@ wlan_dp_spm_match_policy_to_active_flows(struct wlan_dp_spm_policy_info *policy,
  *
  * Return: None
  */
-void wlan_dp_spm_svc_map(struct wlan_dp_spm_svc_class *svc_class)
+static void wlan_dp_spm_svc_map(struct wlan_dp_spm_svc_class *svc_class)
 {
 	struct wlan_dp_spm_policy_info *policy;
 
@@ -338,7 +338,7 @@ void wlan_dp_spm_svc_map(struct wlan_dp_spm_svc_class *svc_class)
  *
  * Return: None
  */
-void wlan_dp_spm_svc_delete(struct wlan_dp_spm_svc_class *svc_class)
+static void wlan_dp_spm_svc_delete(struct wlan_dp_spm_svc_class *svc_class)
 {
 	struct wlan_dp_spm_context *spm_ctx = wlan_dp_spm_get_context();
 	struct wlan_dp_spm_policy_info *policy;

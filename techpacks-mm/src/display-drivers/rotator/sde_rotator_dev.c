@@ -950,8 +950,7 @@ struct sde_rotator_ctx *sde_rotator_ctx_open(
 
 	if (ctx->file) {
 		v4l2_fh_init(&ctx->fh, video);
-		file->private_data = &ctx->fh;
-		v4l2_fh_add(&ctx->fh);
+		v4l2_fh_add(&ctx->fh, file);
 
 		ctx->fh.m2m_ctx = v4l2_m2m_ctx_init(rot_dev->m2m_dev,
 			ctx, sde_rotator_queue_init);
@@ -1062,7 +1061,7 @@ error_kobj_init:
 	}
 error_m2m_init:
 	if (ctx->file) {
-		v4l2_fh_del(&ctx->fh);
+		v4l2_fh_del(&ctx->fh, ctx->file);
 		v4l2_fh_exit(&ctx->fh);
 	}
 	mutex_unlock(&rot_dev->lock);
@@ -1149,7 +1148,7 @@ static int sde_rotator_ctx_release(struct sde_rotator_ctx *ctx,
 		if (ctx->fh.m2m_ctx)
 			v4l2_m2m_ctx_release(ctx->fh.m2m_ctx);
 		if (ctx->fh.vdev) {
-			v4l2_fh_del(&ctx->fh);
+			v4l2_fh_del(&ctx->fh, ctx->file);
 			v4l2_fh_exit(&ctx->fh);
 		}
 	}
@@ -3624,5 +3623,5 @@ void sde_rotator_unregister(void)
 }
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 19, 0))
-MODULE_IMPORT_NS(DMA_BUF);
+MODULE_IMPORT_NS("DMA_BUF");
 #endif

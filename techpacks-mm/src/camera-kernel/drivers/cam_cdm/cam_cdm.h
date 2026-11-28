@@ -602,5 +602,6 @@ int cam_cdm_intf_register_hw_cdm(struct cam_hw_intf *hw,
 int cam_cdm_intf_deregister_hw_cdm(struct cam_hw_intf *hw,
 	struct cam_cdm_private_dt_data *data, enum cam_cdm_type type,
 	uint32_t index);
+void cam_hw_cdm_dump_scratch_registors(struct cam_hw_info *cdm_hw);
 
 #endif /* _CAM_CDM_H_ */

@@ -854,10 +854,6 @@ struct cnss_plat_data {
 	u32 pcie_switch_type;
 };
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0))
-#define from_timer timer_container_of
-#endif
-
 #if IS_ENABLED(CONFIG_ARCH_QCOM)
 static inline u64 cnss_get_host_timestamp(struct cnss_plat_data *plat_priv)
 {
@@ -1031,12 +1027,12 @@ static inline int cnss_timer_delete_sync(struct timer_list *timer)
 #else
 static inline int cnss_timer_delete(struct timer_list *timer)
 {
-	return del_timer(timer);
+	return timer_delete(timer);
 }
 
 static inline int cnss_timer_delete_sync(struct timer_list *timer)
 {
-	return del_timer_sync(timer);
+	return timer_delete_sync(timer);
 }
 #endif
 

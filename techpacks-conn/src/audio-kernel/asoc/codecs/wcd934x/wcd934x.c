@@ -1141,7 +1141,7 @@ static int tavil_vi_feed_mixer_get(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dapm_widget *widget =
-		snd_soc_dapm_kcontrol_widget(kcontrol);
+		snd_soc_dapm_kcontrol_to_widget(kcontrol);
 	struct snd_soc_component *component =
 			snd_soc_dapm_to_component(widget->dapm);
 	struct tavil_priv *tavil_p = snd_soc_component_get_drvdata(component);
@@ -1155,7 +1155,7 @@ static int tavil_vi_feed_mixer_put(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dapm_widget *widget =
-		snd_soc_dapm_kcontrol_widget(kcontrol);
+		snd_soc_dapm_kcontrol_to_widget(kcontrol);
 	struct snd_soc_component *component =
 			snd_soc_dapm_to_component(widget->dapm);
 	struct tavil_priv *tavil_p = snd_soc_component_get_drvdata(component);
@@ -1207,7 +1207,7 @@ static int slim_tx_mixer_get(struct snd_kcontrol *kcontrol,
 			     struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dapm_widget *widget =
-			snd_soc_dapm_kcontrol_widget(kcontrol);
+			snd_soc_dapm_kcontrol_to_widget(kcontrol);
 	struct snd_soc_component *component =
 			snd_soc_dapm_to_component(widget->dapm);
 	struct tavil_priv *tavil_p = snd_soc_component_get_drvdata(component);
@@ -1220,7 +1220,7 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 			     struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dapm_widget *widget =
-			snd_soc_dapm_kcontrol_widget(kcontrol);
+			snd_soc_dapm_kcontrol_to_widget(kcontrol);
 	struct snd_soc_component *component =
 			snd_soc_dapm_to_component(widget->dapm);
 	struct tavil_priv *tavil_p = snd_soc_component_get_drvdata(component);
@@ -1302,7 +1302,7 @@ static int i2s_tx_mixer_get(struct snd_kcontrol *kcontrol,
 			    struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dapm_widget *widget =
-		snd_soc_dapm_kcontrol_widget(kcontrol);
+		snd_soc_dapm_kcontrol_to_widget(kcontrol);
 	struct snd_soc_component *component =
 			snd_soc_dapm_to_component(widget->dapm);
 	struct tavil_priv *tavil_p = snd_soc_component_get_drvdata(component);
@@ -1315,7 +1315,7 @@ static int i2s_tx_mixer_put(struct snd_kcontrol *kcontrol,
 			    struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dapm_widget *widget =
-		snd_soc_dapm_kcontrol_widget(kcontrol);
+		snd_soc_dapm_kcontrol_to_widget(kcontrol);
 	struct snd_soc_component *component =
 			snd_soc_dapm_to_component(widget->dapm);
 	struct tavil_priv *tavil_p = snd_soc_component_get_drvdata(component);
@@ -1391,7 +1391,7 @@ static int slim_rx_mux_get(struct snd_kcontrol *kcontrol,
 			   struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dapm_widget *widget =
-		snd_soc_dapm_kcontrol_widget(kcontrol);
+		snd_soc_dapm_kcontrol_to_widget(kcontrol);
 	struct snd_soc_component *component =
 			snd_soc_dapm_to_component(widget->dapm);
 	struct tavil_priv *tavil_p = snd_soc_component_get_drvdata(component);
@@ -1405,7 +1405,7 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 			   struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dapm_widget *widget =
-		snd_soc_dapm_kcontrol_widget(kcontrol);
+		snd_soc_dapm_kcontrol_to_widget(kcontrol);
 	struct snd_soc_component *component =
 			snd_soc_dapm_to_component(widget->dapm);
 	struct tavil_priv *tavil_p = snd_soc_component_get_drvdata(component);
@@ -2688,7 +2688,7 @@ static int i2s_rx_mux_get(struct snd_kcontrol *kcontrol,
 			  struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dapm_widget *widget =
-		snd_soc_dapm_kcontrol_widget(kcontrol);
+		snd_soc_dapm_kcontrol_to_widget(kcontrol);
 	struct snd_soc_component *component =
 			snd_soc_dapm_to_component(widget->dapm);
 	struct tavil_priv *tavil_p = snd_soc_component_get_drvdata(component);
@@ -2702,7 +2702,7 @@ static int i2s_rx_mux_put(struct snd_kcontrol *kcontrol,
 			  struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dapm_widget *widget =
-		snd_soc_dapm_kcontrol_widget(kcontrol);
+		snd_soc_dapm_kcontrol_to_widget(kcontrol);
 	struct snd_soc_component *component =
 			snd_soc_dapm_to_component(widget->dapm);
 	struct tavil_priv *tavil_p = snd_soc_component_get_drvdata(component);
@@ -6761,7 +6761,7 @@ static int tavil_dec_enum_put(struct snd_kcontrol *kcontrol,
 			      struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dapm_widget *widget =
-			snd_soc_dapm_kcontrol_widget(kcontrol);
+			snd_soc_dapm_kcontrol_to_widget(kcontrol);
 	struct snd_soc_component *component =
 			snd_soc_dapm_to_component(widget->dapm);
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
@@ -6822,7 +6822,7 @@ static int tavil_int_dem_inp_mux_put(struct snd_kcontrol *kcontrol,
 				     struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dapm_widget *widget =
-		snd_soc_dapm_kcontrol_widget(kcontrol);
+		snd_soc_dapm_kcontrol_to_widget(kcontrol);
 	struct snd_soc_component *component =
 			snd_soc_dapm_to_component(widget->dapm);
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;

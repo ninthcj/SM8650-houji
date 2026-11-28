@@ -124,6 +124,8 @@ struct cam_cre_dev_prepare_req {
 
 int cam_cre_subdev_init_module(void);
 void cam_cre_subdev_exit_module(void);
+int cam_cre_hw_init(struct cam_cre_hw_intf_data **cre_hw_intf_data,
+		uint32_t hw_idx);
 
 int cam_cre_top_process(struct cam_cre_hw *cam_cre_hw_info,
 	int32_t ctx_id, uint32_t cmd_id, void *data);

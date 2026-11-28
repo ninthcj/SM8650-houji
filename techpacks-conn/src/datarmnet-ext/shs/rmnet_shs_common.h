@@ -51,7 +51,7 @@ void rmnet_shs_cpu_node_move(struct rmnet_shs_skbn_s *node,
 			     struct list_head *hd, int oldcpu);
 
 void rmnet_shs_cpu_ooo(u8 cpu, int count);
-inline int rmnet_shs_is_lpwr_cpu(u16 cpu);
+int rmnet_shs_is_lpwr_cpu(u16 cpu);
 
 u64 rmnet_shs_wq_get_max_allowed_pps(u16 cpu);
 u32 rmnet_shs_get_cpu_qtail(u8 cpu_num);

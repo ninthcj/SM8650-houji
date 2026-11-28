@@ -417,6 +417,7 @@ static const struct dp_drm_mst_fw_helper_ops drm_dp_mst_fw_helper_ops = {
 /* DP MST Bridge OPs */
 
 static int dp_mst_bridge_attach(struct drm_bridge *dp_bridge,
+				struct drm_encoder *encoder,
 				enum drm_bridge_attach_flags flags)
 {
 	struct dp_mst_bridge *bridge;
@@ -1334,7 +1335,7 @@ end:
 
 enum drm_mode_status dp_mst_connector_mode_valid(
 		struct drm_connector *connector,
-		struct drm_display_mode *mode,
+		const struct drm_display_mode *mode,
 		void *display, const struct msm_resource_caps_info *avail_res)
 {
 	struct dp_display *dp_display = display;

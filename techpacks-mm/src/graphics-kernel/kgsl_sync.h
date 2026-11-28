@@ -150,6 +150,8 @@ bool kgsl_hw_fence_signaled(struct dma_fence *fence);
 
 void kgsl_get_fence_name(struct dma_fence *f, char *name, u32 max_size);
 
+void kgsl_sync_timeline_value_str(struct dma_fence *fence, char *str, int size);
+
 int kgsl_hw_fence_soccp_vote(bool pwr_on);
 
 #else
@@ -293,6 +295,11 @@ bool kgsl_hw_fence_signaled(struct dma_fence *fence)
 void kgsl_get_fence_name(struct dma_fence *f, char *name, u32 max_size)
 {
 
+}
+
+static inline void kgsl_sync_timeline_value_str(struct dma_fence *fence,
+		char *str, int size)
+{
 }
 
 #endif /* CONFIG_SYNC_FILE */

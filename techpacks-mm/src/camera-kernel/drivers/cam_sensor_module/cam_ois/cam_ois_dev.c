@@ -321,7 +321,7 @@ static int cam_ois_i2c_driver_probe(struct i2c_client *client)
 }
 
 #if KERNEL_VERSION(6, 1, 0) <= LINUX_VERSION_CODE
-void cam_ois_i2c_driver_remove(struct i2c_client *client)
+static void cam_ois_i2c_driver_remove(struct i2c_client *client)
 {
 	component_del(&client->dev, &cam_ois_i2c_component_ops);
 }

@@ -6095,8 +6095,7 @@ static int icnss_smmu_fault_handler(struct iommu_domain *domain,
 }
 
 #if defined(CONFIG_CNSS2_SMMU_DB_SUPPORT) && \
-    ((LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0)) || \
-     (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)))
+    (LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0))
 #define PCIE_LOCAL_REG_APPS_TO_Q6	0x3224
 #define PCIE_LOCAL_REG_WCSS_IE_IRQ	0x3228
 
@@ -6240,19 +6239,11 @@ static inline int icnss_dt_parse_iommu_address(struct device *dev, u32 *addr_win
 }
 #endif
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
-static void icnss_set_smmu_fault_handler(struct icnss_priv *priv)
-{
-	qcom_iommu_set_fault_handler(priv->iommu_domain,
-				     icnss_smmu_fault_handler, priv);
-}
-#else
 static void icnss_set_smmu_fault_handler(struct icnss_priv *priv)
 {
 	iommu_set_fault_handler(priv->iommu_domain,
 				icnss_smmu_fault_handler, priv);
 }
-#endif
 
 static int icnss_smmu_dt_parse(struct icnss_priv *priv)
 {
@@ -7099,7 +7090,7 @@ static void icnss_remove(struct platform_device *pdev)
 
 void icnss_recovery_timeout_hdlr(struct timer_list *t)
 {
-	struct icnss_priv *priv = from_timer(priv, t, recovery_timer);
+	struct icnss_priv *priv = timer_container_of(priv, t, recovery_timer);
 
 	/* This is to handle if slate is not up and modem SSR is triggered */
 	if (priv->is_slate_rfa && !test_bit(ICNSS_SLATE_UP, &priv->state))
@@ -7111,7 +7102,7 @@ void icnss_recovery_timeout_hdlr(struct timer_list *t)
 
 void icnss_wpss_ssr_timeout_hdlr(struct timer_list *t)
 {
-	struct icnss_priv *priv = from_timer(priv, t, wpss_ssr_timer);
+	struct icnss_priv *priv = timer_container_of(priv, t, wpss_ssr_timer);
 
 	icnss_pr_err("Timeout waiting for WPSS SSR notification 0x%lx\n",
 		      priv->state);

@@ -122,7 +122,7 @@ static void dp_ppeds_rings_status(struct dp_soc *soc)
 }
 
 #ifdef GLOBAL_ASSERT_AVOIDANCE
-void dp_ppeds_print_assert_war_stats(struct dp_soc_be *be_soc)
+static void dp_ppeds_print_assert_war_stats(struct dp_soc_be *be_soc)
 {
 	DP_PRINT_STATS("PPE-DS Tx WAR stats: [%u] [%u] [%u]",
 		       be_soc->ppeds_stats.tx.tx_comp_buf_src,

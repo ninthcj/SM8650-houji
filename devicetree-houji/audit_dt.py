@@ -2,7 +2,7 @@
 """
 Deterministic Device Tree Audit:
 Compares stock ground-truth (stock.dtb[0] + stock dtbo.img[0] merged via ufdt_apply_overlay)
-against the built Linux 6.12 DTBs (out/dtb.img, out/dtbo.img, out/pineapple-v2-houji-merged.dtb)
+against the built Linux 6.18 DTBs (out/dtb.img, out/dtbo.img, out/pineapple-v2-houji-merged.dtb)
 across bootloader matching, /reserved-memory, early-boot bindings, regulators, thermal zones,
 and Xiaomi houji peripheral nodes.
 """
@@ -239,16 +239,20 @@ def collect_compatibles(root: dict):
     return cmap
 
 
-def find_ufdt(explicit: Path | None, yaap_dir: Path, kp5_dir: Path) -> Path:
+def find_ufdt(explicit: Path | None, rom_dir: Path, kp6_dir: Path) -> Path:
     for cand in (
         explicit,
-        yaap_dir / "prebuilts/kernel-build-tools/linux-x86/bin/ufdt_apply_overlay",
-        kp5_dir / "kernel_platform/prebuilts/kernel-build-tools/linux-x86/bin/ufdt_apply_overlay",
+        kp6_dir / "prebuilts/kernel-build-tools/linux_musl-x86/bin/ufdt_apply_overlay",
+        kp6_dir / "prebuilts/kernel-build-tools/linux-x86/bin/ufdt_apply_overlay",
+        rom_dir / "out/host/linux-x86/bin/ufdt_apply_overlay",
+        rom_dir / "prebuilts/kernel-build-tools/linux_musl-x86/bin/ufdt_apply_overlay",
+        rom_dir / "prebuilts/kernel-build-tools/linux-x86/bin/ufdt_apply_overlay",
+        kp6_dir / "kernel_platform/prebuilts/kernel-build-tools/linux-x86/bin/ufdt_apply_overlay",
         shutil.which("ufdt_apply_overlay"),
     ):
         if cand and Path(cand).is_file():
             return Path(cand)
-    raise FileNotFoundError("Could not locate ufdt_apply_overlay (pass --ufdt or sync yaap/kp5)")
+    raise FileNotFoundError("Could not locate ufdt_apply_overlay (pass --ufdt or sync rom/kp6)")
 
 
 def _default_dir(*candidates: Path) -> Path:
@@ -260,22 +264,22 @@ def _default_dir(*candidates: Path) -> Path:
 
 def main() -> int:
     default_rom = _default_dir(PROJECT_ROOT / "yaap-houji/yaap", PROJECT_ROOT / "yaap", REPO_ROOT / "yaap")
-    default_kp5 = _default_dir(REPO_ROOT / "kernel-6.12/kp5", REPO_ROOT / "kp5", PROJECT_ROOT / "kp5")
+    default_kp6 = _default_dir(REPO_ROOT / "kernel-6.18/kp6", REPO_ROOT / "kp6", PROJECT_ROOT / "kp6")
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rom-dir", "--yaap-dir", dest="yaap_dir", type=Path, default=default_rom, help="Android ROM repo root")
-    parser.add_argument("--kp5-dir", type=Path, default=default_kp5, help="KP5 workspace root")
-    parser.add_argument("--stock-dir", type=Path, help="Stock kernel dir (defaults to <yaap>/vendor/xiaomi/houji/kernel/stock)")
+    parser.add_argument("--kp6-dir", "--kp5-dir", dest="kp6_dir", type=Path, default=default_kp6, help="KP6 workspace root")
+    parser.add_argument("--stock-dir", type=Path, help="Stock kernel dir (defaults to <rom>/vendor/xiaomi/houji/kernel/stock)")
     parser.add_argument("--dt-out", type=Path, default=HERE / "out", help="Built DT output dir")
     parser.add_argument("--ufdt", type=Path, help="Path to ufdt_apply_overlay")
     parser.add_argument("--output", type=Path, help="Output JSON report path (default: <dt-out>/DT_AUDIT.json)")
     args = parser.parse_args()
 
     yaap_dir = args.yaap_dir.resolve()
-    kp5_dir = args.kp5_dir.resolve()
+    kp6_dir = args.kp6_dir.resolve()
     stock_dir = (args.stock_dir or (yaap_dir / "vendor/xiaomi/houji/kernel/stock")).resolve()
     out_dir = args.dt_out.resolve()
-    ufdt_bin = find_ufdt(args.ufdt, yaap_dir, kp5_dir)
+    ufdt_bin = find_ufdt(args.ufdt, yaap_dir, kp6_dir)
     out_json = (args.output or (out_dir / "DT_AUDIT.json")).resolve()
 
     issues: list[str] = []
@@ -337,15 +341,15 @@ def main() -> int:
     new_rm = extract_resmem(new_root)
     new_rm_overlaps = check_resmem_overlaps(new_rm)
     if new_rm_overlaps:
-        issues.append(f"6.12 /reserved-memory has address overlaps: {new_rm_overlaps}")
+        issues.append(f"6.18 /reserved-memory has address overlaps: {new_rm_overlaps}")
 
     rm_diffs = {}
     for k in sorted(set(stock_rm) | set(new_rm)):
         if k not in new_rm:
-            rm_diffs[k] = {"status": "MISSING_IN_6_12", "stock": stock_rm[k]}
-            issues.append(f"/reserved-memory/{k} missing in 6.12")
+            rm_diffs[k] = {"status": "MISSING_IN_6_18", "stock": stock_rm[k]}
+            issues.append(f"/reserved-memory/{k} missing in 6.18")
         elif k not in stock_rm:
-            rm_diffs[k] = {"status": "ADDED_IN_6_12", "new": new_rm[k]}
+            rm_diffs[k] = {"status": "ADDED_IN_6_18", "new": new_rm[k]}
         else:
             s_info, n_info = stock_rm[k], new_rm[k]
             diff_fields = {}
@@ -389,7 +393,7 @@ def main() -> int:
             ),
         }
 
-    # 4. Early-boot & 6.12 bindings audit
+    # 4. Early-boot & 6.18 bindings audit
     early_boot: dict = {}
 
     s_tlmm = get_node(stock_root, "/soc/pinctrl@f000000")
@@ -403,15 +407,15 @@ def main() -> int:
     n_pg = get_node(new_root, "/soc/qcom,pmic_glink")
     n_pgl = get_node(new_root, "/soc/qcom,pmic_glink_log")
     early_boot["pmic_glink"] = {
-        "pmic_glink_compatible_6_12": prop_str_list(n_pg, "compatible") if n_pg else None,
-        "pmic_glink_log_compatible_6_12": prop_str_list(n_pgl, "compatible") if n_pgl else None,
+        "pmic_glink_compatible_6_18": prop_str_list(n_pg, "compatible") if n_pg else None,
+        "pmic_glink_log_compatible_6_18": prop_str_list(n_pgl, "compatible") if n_pgl else None,
         "battery_charger_present": bool(get_node(new_root, "/soc/qcom,pmic_glink/qcom,battery_charger")),
         "battery_charger_shutdown_voltage": prop_u32_list(get_node(new_root, "/soc/qcom,pmic_glink/qcom,battery_charger"), "qcom,shutdown-voltage"),
         "charger_partition_present": bool(get_node(new_root, "/soc/qcom,pmic_glink/charger_partition")),
         "ucsi_connector_present": bool(get_node(new_root, "/soc/qcom,pmic_glink/qcom,ucsi/connector")),
     }
-    if early_boot["pmic_glink"]["pmic_glink_compatible_6_12"] != ["qcom,qti-pmic-glink"]:
-        issues.append("pmic_glink does not use 6.12 binding qcom,qti-pmic-glink")
+    if early_boot["pmic_glink"]["pmic_glink_compatible_6_18"] != ["qcom,qti-pmic-glink"]:
+        issues.append("pmic_glink does not use 6.18 binding qcom,qti-pmic-glink")
 
     s_spmi = get_node(stock_root, "/soc/qcom,spmi@c42d000")
     n_spmi = get_node(new_root, "/soc/qcom,spmi@c42d000")
@@ -435,8 +439,8 @@ def main() -> int:
     ufshc_broken_ahit = bool(n_ufshc and "qcom,broken-ahit-wa" in n_ufshc["_props"])
     early_boot["ufs_and_storage"] = {
         "ufshc_status": prop_str(n_ufshc, "status") if n_ufshc else None,
-        "ufshc_reg_6_12": ufshc_reg,
-        "ufshc_reg_names_6_12": ufshc_reg_names,
+        "ufshc_reg_6_18": ufshc_reg,
+        "ufshc_reg_names_6_18": ufshc_reg_names,
         "ufshc_ice_use_hwkm": ufshc_use_hwkm,
         "ufshc_ice_handle_clks": ufshc_handle_clks,
         "ufshc_prime_mask": [hex(x) for x in (ufshc_prime_mask or [])],
@@ -521,7 +525,7 @@ def main() -> int:
 
     n_smmu = get_node(new_root, "/soc/apps-smmu@15000000")
     n_kgsl_smmu = get_node(new_root, "/soc/kgsl-smmu@3da0000")
-    early_boot["smmu_6_12"] = {
+    early_boot["smmu_6_18"] = {
         "apps_smmu_reg_cells": len(prop_u32_list(n_smmu, "reg") or []) if n_smmu else 0,
         "kgsl_smmu_reg_cells": len(prop_u32_list(n_kgsl_smmu, "reg") or []) if n_kgsl_smmu else 0,
     }
@@ -578,8 +582,8 @@ def main() -> int:
         issues.append(f"Missing Xiaomi board thermal zones: {missing_therms}")
 
     thermal_audit = {
-        "total_thermal_zones_6_12": len(n_tz["_children"]) if n_tz else 0,
-        "total_vadc_channels_6_12": len(vadc["_children"]) if vadc else 0,
+        "total_thermal_zones_6_18": len(n_tz["_children"]) if n_tz else 0,
+        "total_vadc_channels_6_18": len(vadc["_children"]) if vadc else 0,
         "vadc_duplicate_reg_channels": vadc_dups,
         "xiaomi_board_thermistors_present": [t for t in xiaomi_therms if n_tz and t in n_tz["_children"]],
         "xiaomi_board_thermistors_missing": missing_therms,
@@ -609,15 +613,15 @@ def main() -> int:
         peripherals_audit[c] = {
             "stock_count": len(s_nodes),
             "new_count": len(n_nodes),
-            "present_in_6_12": ok,
-            "paths_6_12": [x["path"] for x in n_nodes[:6]],
+            "present_in_6_18": ok,
+            "paths_6_18": [x["path"] for x in n_nodes[:6]],
         }
         if not ok:
-            issues.append(f"Required houji peripheral compatible '{c}' missing in 6.12 merged DTB")
+            issues.append(f"Required houji peripheral compatible '{c}' missing in 6.18 merged DTB")
 
     n3_panel = get_node(new_root, "/soc/qcom,mdss_mdp@ae00000/qcom,mdss_dsi_n3_42_0d_0a_dsc_cmd")
     peripherals_audit["dsi_panel_n3_42_0d_0a"] = {
-        "present_in_6_12": n3_panel is not None,
+        "present_in_6_18": n3_panel is not None,
         "panel_name": prop_str(n3_panel, "qcom,mdss-dsi-panel-name") if n3_panel else None,
         "bpp": prop_u32_list(n3_panel, "qcom,mdss-dsi-bpp") if n3_panel else None,
     }
@@ -631,7 +635,7 @@ def main() -> int:
         issues.append(f"qupv3_se4_spi touch node collision or missing synaptics_tcm@0: {se4_children}")
 
     only_in_stock = sorted(set(stock_compats) - set(new_compats))
-    only_in_6_12 = sorted(set(new_compats) - set(stock_compats))
+    only_in_6_18 = sorted(set(new_compats) - set(stock_compats))
 
     # 8. Hardware parity assertions
     n_chosen = get_node(new_root, "/chosen")
@@ -706,26 +710,26 @@ def main() -> int:
         },
         "bootloader_matching": {
             "stock_base_dtbs": stock_dtb_summary,
-            "new_6_12_base_dtbs": new_dtb_summary,
+            "new_6_18_base_dtbs": new_dtb_summary,
             "stock_dtbo_img": stock_dtbo_info,
-            "new_6_12_dtbo_img": new_dtbo_info,
+            "new_6_18_dtbo_img": new_dtbo_info,
         },
         "reserved_memory": {
             "stock_region_count": len(stock_rm),
-            "new_6_12_region_count": len(new_rm),
-            "overlaps_in_6_12": new_rm_overlaps,
+            "new_6_18_region_count": len(new_rm),
+            "overlaps_in_6_18": new_rm_overlaps,
             "critical_regions": critical_rm_checks,
             "diffs_vs_stock": rm_diffs,
         },
-        "early_boot_and_6_12_bindings": early_boot,
+        "early_boot_and_6_18_bindings": early_boot,
         "regulators": regulators_audit,
         "thermal_and_vadc": thermal_audit,
         "houji_peripherals": peripherals_audit,
         "compatible_delta": {
             "stock_unique_count": len(stock_compats),
-            "new_6_12_unique_count": len(new_compats),
+            "new_6_18_unique_count": len(new_compats),
             "only_in_stock_6_1": only_in_stock,
-            "only_in_new_6_12": only_in_6_12,
+            "only_in_new_6_18": only_in_6_18,
         },
     }
 
@@ -739,9 +743,9 @@ def main() -> int:
     print(f"Warnings ({len(warnings)}):")
     for x in warnings:
         print(f"  [WARN]  {x}")
-    print(f"\nCompatible counts: stock={len(stock_compats)}, 6.12={len(new_compats)}")
-    print(f"Only in stock (6.1 -> 6.12 removed/renamed, {len(only_in_stock)}): {only_in_stock}")
-    print(f"Only in 6.12 (new 6.12 bindings, {len(only_in_6_12)}): {only_in_6_12}")
+    print(f"\nCompatible counts: stock={len(stock_compats)}, 6.18={len(new_compats)}")
+    print(f"Only in stock (6.1 -> 6.18 removed/renamed, {len(only_in_stock)}): {only_in_stock}")
+    print(f"Only in 6.18 (new 6.18 bindings, {len(only_in_6_18)}): {only_in_6_18}")
     print(f"\nWrote {out_json}")
     return 0 if not issues else 1
 

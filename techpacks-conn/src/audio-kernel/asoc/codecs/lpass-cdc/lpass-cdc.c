@@ -20,7 +20,9 @@
 #include "lpass-cdc.h"
 #include "internal.h"
 #include "lpass-cdc-clk-rsc.h"
+#if IS_ENABLED(CONFIG_REGMAP_QTI_DEBUGFS)
 #include <linux/qti-regmap-debugfs.h>
+#endif
 #include <linux/proc_fs.h>
 
 #define DRV_NAME "lpass-cdc"
@@ -1474,7 +1476,9 @@ static int lpass_cdc_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+#if IS_ENABLED(CONFIG_REGMAP_QTI_DEBUGFS)
 	devm_regmap_qti_debugfs_register(priv->dev, priv->regmap);
+#endif
 
 	priv->lpass_cdc_proc_entry = proc_mkdir("lpass_cdc_reginfo", NULL);
 	if (priv->lpass_cdc_proc_entry) {

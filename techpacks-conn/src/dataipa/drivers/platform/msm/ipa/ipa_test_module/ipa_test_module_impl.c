@@ -268,7 +268,7 @@ static void test_free_mem(struct ipa_mem_buffer *mem)
 	mem->base = NULL;
 }
 
-void print_buff(void *data, size_t size)
+static void print_buff(void *data, size_t size)
 {
 	u8 bytes_in_line = 16;
 	int i, j, num_lines;
@@ -307,7 +307,7 @@ static int channel_open(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-int insert_descriptors_into_rx_endpoints(u32 count)
+static int insert_descriptors_into_rx_endpoints(u32 count)
 {
 	struct channel_dev *rx_channel = NULL;
 	int i, j, res = 0;
@@ -509,7 +509,7 @@ static const struct file_operations ulso_data_path_fops = {
  * in DataPath tests for handling
  * the SKB we will transfer
  */
-int create_channel_device_by_type(
+static int create_channel_device_by_type(
 			const int index,
 			const char *dev_name,
 			struct channel_dev **channel_dev_ptr,
@@ -625,7 +625,7 @@ create_channel_device_failure:
 	return ret;
 }
 
-int create_channel_device(const int index,
+static int create_channel_device(const int index,
 			  const char *dev_name,
 			  struct channel_dev **channel_dev_ptr,
 			  size_t mem_size) {
@@ -660,7 +660,7 @@ bool init_write_done_completion;
  * Inits the kfifo needed for the
  * DataPath tests
  */
-int datapath_ds_init(void)
+static int datapath_ds_init(void)
 {
 	int res = 0;
 	rx_size = RX_SZ;

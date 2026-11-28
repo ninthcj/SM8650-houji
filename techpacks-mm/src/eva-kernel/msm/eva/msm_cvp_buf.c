@@ -2082,7 +2082,7 @@ int msm_cvp_session_deinit_buffers(struct msm_cvp_inst *inst)
 	return rc;
 }
 
-void msm_cvp_populate_dsp_buf_info(struct cvp_internal_buf *buf,
+static void msm_cvp_populate_dsp_buf_info(struct cvp_internal_buf *buf,
 								struct cvp_hal_session *session,
 								u32 session_id,
 								struct msm_cvp_core *core)

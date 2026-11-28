@@ -26,7 +26,9 @@
 #include <linux/gpio/consumer.h>
 #include <linux/i2c.h>
 #include <linux/module.h>
+#if IS_ENABLED(CONFIG_REGMAP_QTI_DEBUGFS)
 #include <linux/qti-regmap-debugfs.h>
+#endif
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
@@ -1555,7 +1557,9 @@ static void wsa885x_component_remove(struct snd_soc_component *component)
 	if (!wsa885x)
 		return;
 
+#if IS_ENABLED(CONFIG_REGMAP_QTI_DEBUGFS)
 	devm_regmap_qti_debugfs_unregister(wsa885x->regmap);
+#endif
 	snd_soc_component_exit_regmap(component);
 }
 
@@ -2381,7 +2385,9 @@ static int wsa885x_i2c_probe(struct i2c_client *client)
 				wsa885x->dai_driver[0].name);
 	}
 	i2c_set_clientdata(client, wsa885x);
+#if IS_ENABLED(CONFIG_REGMAP_QTI_DEBUGFS)
 	devm_regmap_qti_debugfs_register(dev, wsa885x->regmap);
+#endif
 
 	wsa885x->intr_pin = devm_gpiod_get_optional(dev, "interrupt", GPIOD_IN);
 	if (IS_ERR(wsa885x->intr_pin)) {

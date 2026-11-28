@@ -157,33 +157,33 @@ inline int qcom_scm_camera_protect_phy_lanes_wrapper(protect, param)
 #include <linux/ITrustedCameraDriver.h>
 #include <linux/CTrustedCameraDriver.h>
 
-inline bool qcom_scm_is_mode_switch_available_wrapper(void)
+static inline bool qcom_scm_is_mode_switch_available_wrapper(void)
 {
 	return qcom_scm_is_mode_switch_available();
 }
 
-inline int qcom_scm_config_cpu_errata_wrapper(void)
+static inline int qcom_scm_config_cpu_errata_wrapper(void)
 {
 	return qcom_scm_config_cpu_errata();
 }
 
-inline bool qcom_scm_is_secure_wdog_trigger_available_wrapper(void)
+static inline bool qcom_scm_is_secure_wdog_trigger_available_wrapper(void)
 {
 	return qcom_scm_is_secure_wdog_trigger_available();
 }
 
-inline int qcom_scm_camera_protect_all_wrapper(uint32_t protect, uint32_t param)
+static inline int qcom_scm_camera_protect_all_wrapper(uint32_t protect, uint32_t param)
 {
 	return qcom_scm_camera_protect_all(protect, param);
 }
 
-inline int qcom_scm_camera_protect_phy_lanes_wrapper(uint32_t protect,
+static inline int qcom_scm_camera_protect_phy_lanes_wrapper(uint32_t protect,
 		uint32_t param)
 {
 	return qcom_scm_camera_protect_phy_lanes(protect, param);
 }
 
-inline int qcom_smc_cam_protect(struct Object me, uint32_t protect,
+static inline int qcom_smc_cam_protect(struct Object me, uint32_t protect,
 		uint32_t phy_param, uint32_t csid_param, uint32_t cdm_param)
 {
 	ITCDriverSensorInfo *phy_sel_info =
@@ -199,18 +199,18 @@ inline int qcom_smc_cam_protect(struct Object me, uint32_t protect,
 	return ITrustedCameraDriver_dynamicProtectSensor(me, phy_sel_info);
 }
 
-inline int qcom_smc_config_fd_port(struct Object me, uint32_t protect)
+static inline int qcom_smc_config_fd_port(struct Object me, uint32_t protect)
 {
 	return ITrustedCameraDriver_dynamicConfigureFDPort(me, protect);
 }
 
-inline int qcom_smc_get_version(struct Object me, uint32_t *arch_ver,
+static inline int qcom_smc_get_version(struct Object me, uint32_t *arch_ver,
 		uint32_t *max_ver, uint32_t *min_ver)
 {
 	return ITrustedCameraDriver_getVersion(me, arch_ver, max_ver, min_ver);
 }
 
-inline int qcom_smc_dynamic_config_port(struct Object me, uint32_t hw_type,
+static inline int qcom_smc_dynamic_config_port(struct Object me, uint32_t hw_type,
 		uint32_t hw_id_mask, uint32_t protect_port, uint32_t phy_id,
 		uint32_t num_ports, uint32_t port_id, size_t port_info_len)
 {

@@ -3010,7 +3010,7 @@ end:
 }
 
 static int dp_display_validate_link_clock(struct dp_display_private *dp,
-		struct drm_display_mode *mode, struct dp_display_mode dp_mode)
+		const struct drm_display_mode *mode, struct dp_display_mode dp_mode)
 {
 	u32 mode_rate_khz = 0, supported_rate_khz = 0, mode_bpp = 0;
 	u32 mode_bpc = 0, tmds_clock = 0;
@@ -3068,7 +3068,7 @@ static int dp_display_validate_pixel_clock(struct dp_display_mode dp_mode,
 }
 
 static int dp_display_validate_topology(struct dp_display_private *dp,
-		struct dp_panel *dp_panel, struct drm_display_mode *mode,
+		struct dp_panel *dp_panel, const struct drm_display_mode *mode,
 		struct dp_display_mode *dp_mode,
 		const struct msm_resource_caps_info *avail_res)
 {
@@ -3167,7 +3167,7 @@ end:
 
 static enum drm_mode_status dp_display_validate_mode(
 		struct dp_display *dp_display,
-		void *panel, struct drm_display_mode *mode,
+		void *panel, const struct drm_display_mode *mode,
 		const struct msm_resource_caps_info *avail_res)
 {
 	struct dp_display_private *dp;

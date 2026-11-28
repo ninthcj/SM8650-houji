@@ -75,7 +75,7 @@ def define_modules(target, variant):
             "CONFIG_QCOM_SOCINFO_MODULE=1",
             "CONFIG_IPC_LOGGING_MODULE=1",
         ],
-        copts = ["-Wno-format", "-Wno-unused-function", "-Wno-unused-variable"],
+        copts = ["-Wno-format", "-Wno-unused-function", "-Wno-unused-variable", "-fstrict-flex-arrays=0"],
         out = "frpc-adsprpc.ko",
         hdrs = [
             "include/linux/fastrpc.h",
@@ -92,7 +92,7 @@ def define_modules(target, variant):
         kernel_build = kernel_build,
         deps = cdsp_deps,
         srcs = ["dsp/cdsp-loader.c"],
-        copts = ["-Wno-format"],
+        copts = ["-Wno-format", "-fstrict-flex-arrays=0"],
         out = "cdsp-loader.ko",
     )
 

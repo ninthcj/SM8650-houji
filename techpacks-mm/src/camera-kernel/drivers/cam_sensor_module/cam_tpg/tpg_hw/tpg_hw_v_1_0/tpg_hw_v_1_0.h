@@ -80,6 +80,7 @@ int tpg_hw_v_1_0_start(struct tpg_hw *hw, void *data);
  * @return : 0 on success
  */
 int tpg_hw_v_1_0_stop(struct tpg_hw *hw, void *data);
+int tpg_hw_v_1_0_process_cmd(struct tpg_hw *hw, uint32_t cmd, void *arg);
 
 
 #endif

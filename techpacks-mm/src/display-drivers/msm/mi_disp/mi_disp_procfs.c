@@ -12,6 +12,7 @@
 
 #include <drm/mi_disp.h>
 #include "mi_disp_config.h"
+#include "mi_disp_procfs.h"
 #include "mi_disp_print.h"
 #include "mi_disp_core.h"
 #include "mi_disp_feature.h"

@@ -2476,7 +2476,7 @@ exit:
 		sde_cp_disable_features(crtc);
 }
 
-void sde_cp_reset_unsupported_feature_wrappers(struct sde_mdss_cfg *catalog)
+static void sde_cp_reset_unsupported_feature_wrappers(struct sde_mdss_cfg *catalog)
 {
 	if (!catalog) {
 		DRM_ERROR("invalid catalog\n");

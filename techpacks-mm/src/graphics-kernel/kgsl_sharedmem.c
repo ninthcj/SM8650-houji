@@ -1117,8 +1117,7 @@ static int kgsl_shmem_alloc_pages(struct kgsl_memdesc *memdesc)
 	return count;
 }
 
-#if ((KERNEL_VERSION(6, 12, 18) <= LINUX_VERSION_CODE) && \
-	(KERNEL_VERSION(6, 13, 0) > LINUX_VERSION_CODE))
+#if (KERNEL_VERSION(6, 12, 18) <= LINUX_VERSION_CODE)
 static void kgsl_shmem_fill_page(void *ptr,
 	struct shmem_inode_info *inode, struct folio **folio, int order)
 {
@@ -1204,7 +1203,7 @@ static int kgsl_alloc_secure(int *page_size, struct page **pages,
 	kgsl_zero_page(page, order, dev);
 
 	for (j = 0; j < (*page_size >> PAGE_SHIFT); j++) {
-		pages[pcount] = nth_page(page, j);
+		pages[pcount] = page + j;
 		pcount++;
 	}
 
@@ -1477,7 +1476,7 @@ void kgsl_zero_page(struct page *p, unsigned int order,
 	int i;
 
 	for (i = 0; i < (1 << order); i++) {
-		struct page *page = nth_page(p, i);
+		struct page *page = p + i;
 
 		clear_highpage(page);
 	}
@@ -1676,7 +1675,7 @@ static void kgsl_free_pages_from_sgt(struct kgsl_memdesc *memdesc)
 
 		while (j < (sg->length/PAGE_SIZE)) {
 			count = 1 << compound_order(p);
-			next = nth_page(p, count);
+			next = p + count;
 			kgsl_free_page(memdesc, p);
 
 			p = next;

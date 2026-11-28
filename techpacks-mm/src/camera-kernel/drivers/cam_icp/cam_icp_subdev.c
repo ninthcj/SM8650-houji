@@ -23,6 +23,7 @@
 #include <media/cam_icp.h>
 #include "cam_req_mgr_dev.h"
 #include "cam_subdev.h"
+#include "cam_icp_subdev.h"
 #include "cam_node.h"
 #include "cam_context.h"
 #include "cam_icp_context.h"

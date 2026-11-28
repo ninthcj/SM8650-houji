@@ -579,7 +579,7 @@ free_buf:
  * out the buffers. If there is a single error for any buffer, we bail out with
  * an error and disregard the rest of the buffers mapped to @context_bank_id.
  */
-int smmu_proxy_clear_all_buffers(void __user *context_bank_id_array,
+static int smmu_proxy_clear_all_buffers(void __user *context_bank_id_array,
 				 __u32 num_cb_ids)
 {
 	unsigned long handle;
@@ -849,7 +849,7 @@ static struct platform_driver smmu_proxy_driver = {
 	},
 };
 
-int __init init_smmu_proxy_driver(void)
+static int __init init_smmu_proxy_driver(void)
 {
 	int ret;
 	struct csf_version csf_version;
@@ -872,7 +872,8 @@ module_init(init_smmu_proxy_driver);
 #if (KERNEL_VERSION(6, 13, 0) <= LINUX_VERSION_CODE)
 MODULE_IMPORT_NS("DMA_BUF");
 #else
-MODULE_IMPORT_NS(DMA_BUF);
+MODULE_IMPORT_NS("DMA_BUF");
 #endif
 
 MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("QTI SMMU Proxy TVM Driver");

@@ -43,6 +43,7 @@ def _define_module(target, variant):
         out = "msm_hw_fence.ko",
         defconfig = target_config,
         kconfig = "Kconfig",
+        copts = ["-fstrict-flex-arrays=0"],
         conditional_srcs = {
             "CONFIG_DEBUG_FS": {
                 True: ["src/hw_fence_ioctl.c"],

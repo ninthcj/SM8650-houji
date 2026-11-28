@@ -649,7 +649,7 @@ static struct platform_driver shikra_qaif_cpu_platform_driver = {
 		.pm = &shikra_qaif_pm_ops,
 	},
 	.probe = asoc_qcom_qaif_cpu_platform_probe,
-	.remove_new = asoc_qcom_qaif_cpu_platform_remove,
+	.remove = asoc_qcom_qaif_cpu_platform_remove,
 	.shutdown = asoc_qcom_qaif_cpu_platform_shutdown,
 };
 

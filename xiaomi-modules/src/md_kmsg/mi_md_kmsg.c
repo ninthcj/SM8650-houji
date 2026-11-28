@@ -18,6 +18,7 @@
 #include <linux/firmware/qcom/qcom_scm.h>
 #include <linux/gunyah/gh_rm_drv.h>
 #include <linux/init.h>
+#include <linux/jiffies.h>
 #include <linux/kernel.h>
 #include <linux/kmsg_dump.h>
 #include <linux/mm.h>
@@ -100,6 +101,7 @@ static bool mi_dload_armed;
 static bool mi_in_crash;
 static bool mi_reboot_notified;
 static unsigned int mi_sync_count;
+static unsigned long mi_boot_jiffies;
 static struct delayed_work mi_sync_dwork;
 static unsigned int boot_guard_sec;
 module_param(boot_guard_sec, uint, 0644);
@@ -272,7 +274,7 @@ static bool mi_is_intentional_non_bootloader_target(const char *cmd)
 	       !strcmp(cmd, "edl");
 }
 
-static void mi_trigger_wdt_bite(bool can_register_gh)
+static void mi_trigger_wdt_bite(bool can_register_gh, bool fallback_restart)
 {
 	struct arm_smccc_res res = {0};
 	struct arm_smccc_res ctl_res = {0};
@@ -283,23 +285,22 @@ static void mi_trigger_wdt_bite(bool can_register_gh)
 	reboot_mode = REBOOT_WARM;
 	mi_snapshot_kmsg(true);
 
-	qcom_wdt_trigger_bite();
+	if (qcom_scm_is_available()) {
+		/* Direct Gunyah EL2 virtual watchdog bite: bark (1ms) <= bite (20ms)! */
+		arm_smccc_1_1_smc(MI_GH_VIRT_WDT_CONTROL, 3, &ctl_res);
+		arm_smccc_1_1_smc(MI_GH_VIRT_WDT_SET_TIME, 1, 20, &res);
+		if (res.a0 != 0)
+			arm_smccc_1_1_smc(MI_GH_VIRT_WDT_SET_TIME, 0xFFFF, 20, &res);
+		arm_smccc_1_1_smc(MI_GH_VIRT_WDT_PET, 0, &ctl_res);
 
-	/* Direct Gunyah EL2 virtual watchdog bite: bark (1ms) MUST be < bite (20ms)! */
-	arm_smccc_1_1_smc(MI_GH_VIRT_WDT_CONTROL, 3, &ctl_res);
-	arm_smccc_1_1_smc(MI_GH_VIRT_WDT_SET_TIME, 1, 20, &res);
-	if (res.a0 != 0)
-		arm_smccc_1_1_smc(MI_GH_VIRT_WDT_SET_TIME, 0xFFFF, 20, &res);
-	arm_smccc_1_1_smc(MI_GH_VIRT_WDT_PET, 0, &ctl_res);
-
-	pr_emerg("EL2 vWDOG armed (set_time a0=0x%lx), waiting for bite...\n", res.a0);
-	mi_snapshot_kmsg(true);
-
-	if (res.a0 != (unsigned long)-1) {
-		mdelay(12000);
-		while (1)
-			udelay(1);
+		pr_emerg("EL2 vWDOG armed (set_time a0=0x%lx), waiting for bite...\n", res.a0);
+		mi_snapshot_kmsg(true);
+		mdelay(1500);
 	}
+
+	qcom_wdt_trigger_bite();
+	if (fallback_restart)
+		emergency_restart();
 }
 
 /* Priority 300 runs ahead of qcom-reboot-reason (255), so clean 'reboot recovery/bootloader' still overrides 0x00. */
@@ -311,7 +312,7 @@ static int mi_md_reboot_cb(struct notifier_block *nb,
 
 	if (READ_ONCE(mi_in_crash)) {
 		mi_update_pon_reason(true);
-		mi_trigger_wdt_bite(true);
+		mi_trigger_wdt_bite(true, false);
 	} else {
 		WRITE_ONCE(mi_reboot_notified, true);
 		cancel_delayed_work_sync(&mi_sync_dwork);
@@ -321,23 +322,23 @@ static int mi_md_reboot_cb(struct notifier_block *nb,
 		} else if (cmd && !strcmp(cmd, "wdt_bite")) {
 			pr_emerg("wdt_bite requested -> snapshotting md_kmsg & triggering Gunyah EL2 WDT bite\n");
 			mi_update_pon_reason(true);
-			mi_trigger_wdt_bite(true);
+			mi_trigger_wdt_bite(true, false);
 		} else if (cmd && !strcmp(cmd, "bootloader")) {
 			mi_update_pon_reason(true);
-			if (guard > 0 && READ_ONCE(mi_sync_count) < MI_ARM_CLEAR_ITERS) {
+			if (guard > 0 && time_before(jiffies, mi_boot_jiffies + msecs_to_jiffies(90000U))) {
 				pr_emerg("early-boot reboot bootloader (InitFatalReboot) at iter=%u -> dumping md_kmsg via EL2 WDT bite\n",
 					 READ_ONCE(mi_sync_count));
-				mi_trigger_wdt_bite(true);
+				mi_trigger_wdt_bite(true, false);
 			} else {
 				mi_set_dload_mode(QCOM_DOWNLOAD_NODUMP);
 			}
 		} else if (guard > 0 && action == SYS_RESTART &&
-			   READ_ONCE(mi_sync_count) < MI_ARM_CLEAR_ITERS &&
+			   time_before(jiffies, mi_boot_jiffies + msecs_to_jiffies(90000U)) &&
 			   !mi_is_intentional_non_bootloader_target(cmd)) {
 			pr_emerg("early-boot restart (%s) at iter=%u -> forcing 1-shot fastboot + md_kmsg\n",
 				 cmd ? cmd : "<null>", READ_ONCE(mi_sync_count));
 			mi_update_pon_reason(true);
-			mi_trigger_wdt_bite(true);
+			mi_trigger_wdt_bite(true, false);
 		} else {
 			mi_update_pon_reason(false);
 			mi_set_dload_mode(QCOM_DOWNLOAD_NODUMP);
@@ -351,20 +352,23 @@ static struct notifier_block mi_reboot_nb = {
 	.priority = 300,
 };
 
-/* Runs right before qcom_scm_do_restart (130) & psci_sys_reset (129) on panic/emergency_restart */
+/* Runs ahead of restart_wdog_handler (255) & psci_sys_reset (129) on panic/emergency_restart */
+static bool mi_late_bite_done;
+
 static int mi_md_restart_cb(struct notifier_block *nb,
 			    unsigned long action, void *data)
 {
-	if (READ_ONCE(mi_in_crash)) {
+	if (READ_ONCE(mi_in_crash) && !READ_ONCE(mi_late_bite_done)) {
+		WRITE_ONCE(mi_late_bite_done, true);
 		pr_info("Triggering late EL2 WDT bite\n");
-		mi_trigger_wdt_bite(false);
+		mi_trigger_wdt_bite(false, false);
 	}
 	return NOTIFY_DONE;
 }
 
 static struct notifier_block mi_restart_nb = {
 	.notifier_call = mi_md_restart_cb,
-	.priority = 200,
+	.priority = 300,
 };
 
 static void mi_sync_work_fn(struct work_struct *work)
@@ -392,18 +396,22 @@ static void mi_sync_work_fn(struct work_struct *work)
 	}
 	mi_snapshot_kmsg(false);
 	if (!READ_ONCE(mi_reboot_notified) &&
-	    mi_sync_count >= guard * (1000 / MI_MD_SYNC_MS)) {
+	    time_after_eq(jiffies, mi_boot_jiffies + msecs_to_jiffies(guard * 1000U))) {
 		pr_emerg("boot_guard_sec=%u expired without disarm -> forcing 1-shot fastboot + md_kmsg\n",
 			 guard);
 		mi_update_pon_reason(true);
-		mi_trigger_wdt_bite(true);
+		mi_trigger_wdt_bite(true, true);
 		return;
 	}
 	++mi_sync_count;
 	if (!READ_ONCE(mi_in_crash) && !READ_ONCE(mi_reboot_notified) &&
-	    mi_sync_count < MI_MD_SYNC_ITERS)
+	    time_before(jiffies, mi_boot_jiffies + msecs_to_jiffies(300000U))) {
+		unsigned int delay_ms = time_before(jiffies, mi_boot_jiffies + msecs_to_jiffies(2000U))
+			? 25U : MI_MD_SYNC_MS;
+
 		schedule_delayed_work(&mi_sync_dwork,
-				      msecs_to_jiffies(MI_MD_SYNC_MS));
+				      msecs_to_jiffies(delay_ms));
+	}
 }
 
 static int __init mi_md_kmsg_init(void)
@@ -411,6 +419,7 @@ static int __init mi_md_kmsg_init(void)
 	unsigned int guard = READ_ONCE(boot_guard_sec);
 	int ret;
 
+	mi_boot_jiffies = jiffies;
 	mi_kmsg_buf = alloc_pages_exact(MI_MD_KMSG_SIZE, GFP_KERNEL | __GFP_ZERO);
 	if (!mi_kmsg_buf)
 		return -ENOMEM;
@@ -442,11 +451,16 @@ static int __init mi_md_kmsg_init(void)
 	register_restart_handler(&mi_restart_nb);
 	INIT_DELAYED_WORK(&mi_sync_dwork, mi_sync_work_fn);
 	if (guard > 0) {
-		mi_update_pon_reason(true);
-		mi_snapshot_kmsg(false);
+		int tries;
+
+		for (tries = 0; tries < 80 && !mi_pon_fastboot_armed; tries++) {
+			mi_update_pon_reason(true);
+			if (!mi_pon_fastboot_armed)
+				msleep(5);
+		}
 		mi_set_dload_mode(QCOM_DOWNLOAD_MINIDUMP);
-		schedule_delayed_work(&mi_sync_dwork,
-				      msecs_to_jiffies(MI_MD_SYNC_MS));
+		mi_snapshot_kmsg(true);
+		schedule_delayed_work(&mi_sync_dwork, msecs_to_jiffies(25));
 	} else if (READ_ONCE(mi_gh_slot) < 0) {
 		schedule_delayed_work(&mi_sync_dwork,
 				      msecs_to_jiffies(MI_MD_SYNC_MS));

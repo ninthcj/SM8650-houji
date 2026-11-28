@@ -21,7 +21,9 @@
 #include "internal.h"
 #include "bolero-clk-rsc.h"
 #include "asoc/bolero-slave-internal.h"
+#if IS_ENABLED(CONFIG_REGMAP_QTI_DEBUGFS)
 #include <linux/qti-regmap-debugfs.h>
+#endif
 
 #define DRV_NAME "bolero_codec"
 
@@ -1422,7 +1424,9 @@ static int bolero_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+#if IS_ENABLED(CONFIG_REGMAP_QTI_DEBUGFS)
 	devm_regmap_qti_debugfs_register(priv->dev, priv->regmap);
+#endif
 
 	priv->read_dev = __bolero_reg_read;
 	priv->write_dev = __bolero_reg_write;

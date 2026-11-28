@@ -959,4 +959,5 @@ void dsi_ctrl_transfer_cleanup(struct dsi_ctrl *dsi_ctrl);
  * @dsi_ctrl:                 DSI controller handle.
  */
 void dsi_ctrl_flush_cmd_dma_queue(struct dsi_ctrl *dsi_ctrl);
+int dsi_ctrl_buffer_init(struct dsi_ctrl *dsi_ctrl);
 #endif /* _DSI_CTRL_H_ */

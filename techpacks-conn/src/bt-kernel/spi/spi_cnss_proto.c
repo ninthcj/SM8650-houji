@@ -2147,7 +2147,7 @@ static int spi_cnss_release(struct inode *inode, struct file *filp)
 		atomic_set(&usr->rx_avail, 0);
 #ifdef CONFIG_AGGRESSIVE_SLEEP
 #if (KERNEL_VERSION(6, 15, 0) > LINUX_VERSION_CODE)
-		del_timer_sync(&spi_drv->client_sleep_timer);
+		timer_delete_sync(&spi_drv->client_sleep_timer);
 #else
 		timer_delete_sync(&spi_drv->client_sleep_timer);
 #endif

@@ -11,6 +11,7 @@
 #include <linux/of_gpio.h>
 
 #include "mi_disp_print.h"
+#include "mi_disp_parser.h"
 #include "dsi_panel.h"
 #include "dsi_parser.h"
 #include "mi_panel_id.h"

@@ -19,6 +19,7 @@
  * This API programs CSIPhy IRQ  registers
  */
 void cam_csiphy_cphy_irq_config(struct csiphy_device *csiphy_dev);
+void cam_csiphy_cphy_irq_disable(struct csiphy_device *csiphy_dev);
 
 /**
  * @csiphy_dev: CSIPhy device structure

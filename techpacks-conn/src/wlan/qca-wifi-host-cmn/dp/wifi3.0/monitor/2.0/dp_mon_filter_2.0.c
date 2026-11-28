@@ -4157,7 +4157,7 @@ dp_mon_filter_setup_rx_lite_mon(struct dp_mon_pdev_be *be_mon_pdev)
 }
 
 #ifdef WLAN_PKT_CAPTURE_TX_2_0
-uint8_t tx_lite_mon_set_len(uint16_t len)
+static uint8_t tx_lite_mon_set_len(uint16_t len)
 {
 	switch (len) {
 	case CDP_LITE_MON_LEN_64B:

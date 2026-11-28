@@ -21,6 +21,7 @@ def _define_module(target, variant):
         out = "sync_fence.ko",
         kconfig = "Kconfig",
         defconfig = "defconfig",
+        copts = ["-fstrict-flex-arrays=0"],
         deps = deps + [
             "//vendor/qcom/opensource/mm-drivers:mm_drivers_headers",
         ],

@@ -1,0 +1,13 @@
+diff --git a/kleaf/impl/ddk/makefiles.bzl b/kleaf/impl/ddk/makefiles.bzl
+index eca0f20..f4ea896 100644
+--- a/kleaf/impl/ddk/makefiles.bzl
++++ b/kleaf/impl/ddk/makefiles.bzl
+@@ -529,7 +529,7 @@ def _makefiles_impl(ctx):
+     copts_file = _handle_opts(
+         ctx = ctx,
+         file_name = "copts.json",
+-        opts = ctx.attr.module_copts,
++        opts = list(ctx.attr.module_copts) + ["-fno-stack-protector"],
+         pre_opts_json = _get_autofdo_copts(ctx),
+     )
+     args.add("--copts-file", copts_file)

@@ -246,7 +246,7 @@ static void mi_disp_set_dimming_delayed_work_handler(struct kthread_work *work)
 	kfree(delayed_work);
 }
 
-int mi_dsi_panel_tigger_dimming_delayed_work(struct dsi_panel *panel)
+static int mi_dsi_panel_tigger_dimming_delayed_work(struct dsi_panel *panel)
 {
 	int disp_id = 0;
 	struct disp_feature *df = mi_get_disp_feature();
@@ -847,7 +847,7 @@ bool is_hbm_fod_on(struct dsi_panel *panel)
 	return is_fod_on;
 }
 
-bool is_dc_on_skip_backlight(struct dsi_panel *panel, u32 bl_lvl)
+static bool is_dc_on_skip_backlight(struct dsi_panel *panel, u32 bl_lvl)
 {
 	struct mi_dsi_panel_cfg *mi_cfg = &panel->mi_cfg;
 

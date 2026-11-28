@@ -334,6 +334,7 @@ void synx_global_put_ref(u32 idx);
  * @return SYNX_SUCCESS on success. Negative error on failure.
  */
 int synx_global_get_parents(u32 idx, u32 *parents);
+u32 synx_global_get_parents_num(u32 idx);
 
 /**
  * synx_global_merge - Merge handles to form global handle

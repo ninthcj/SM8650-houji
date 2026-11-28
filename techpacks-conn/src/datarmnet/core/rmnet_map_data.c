@@ -457,7 +457,7 @@ int rmnet_map_checksum_downlink_packet(struct sk_buff *skb, u16 len)
 }
 EXPORT_SYMBOL(rmnet_map_checksum_downlink_packet);
 
-void rmnet_map_v4_checksum_uplink_packet(struct sk_buff *skb,
+static void rmnet_map_v4_checksum_uplink_packet(struct sk_buff *skb,
 					 struct net_device *orig_dev)
 {
 	struct rmnet_priv *priv = netdev_priv(orig_dev);
@@ -534,7 +534,7 @@ static void rmnet_map_v5_check_priority(struct sk_buff *skb,
 
 }
 
-void rmnet_map_v5_checksum_uplink_packet(struct sk_buff *skb,
+static void rmnet_map_v5_checksum_uplink_packet(struct sk_buff *skb,
 					 struct rmnet_port *port,
 					 struct net_device *orig_dev,
 					 bool low_latency)
@@ -1424,7 +1424,7 @@ static void rmnet_map_flush_tx_packet_work(struct work_struct *work)
 	spin_unlock_bh(&state->agg_lock);
 }
 
-enum hrtimer_restart rmnet_map_flush_tx_packet_queue(struct hrtimer *t)
+static enum hrtimer_restart rmnet_map_flush_tx_packet_queue(struct hrtimer *t)
 {
 	struct rmnet_aggregation_state *state;
 
@@ -1729,9 +1729,8 @@ void rmnet_map_tx_aggregate_init(struct rmnet_port *port)
 
 		spin_lock_init(&state->agg_lock);
 		INIT_LIST_HEAD(&state->agg_list);
-		hrtimer_init(&state->hrtimer, CLOCK_MONOTONIC,
-			     HRTIMER_MODE_REL);
-		state->hrtimer.function = rmnet_map_flush_tx_packet_queue;
+		hrtimer_setup(&state->hrtimer, rmnet_map_flush_tx_packet_queue,
+			      CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 		INIT_WORK(&state->agg_wq, rmnet_map_flush_tx_packet_work);
 		state->stats = &port->stats.agg;
 

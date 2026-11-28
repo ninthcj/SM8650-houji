@@ -28,7 +28,9 @@
 #include "wcd937x.h"
 #include "internal.h"
 #include "asoc/bolero-slave-internal.h"
+#if IS_ENABLED(CONFIG_REGMAP_QTI_DEBUGFS)
 #include <linux/qti-regmap-debugfs.h>
+#endif
 
 #define WCD9370_VARIANT 0
 #define WCD9375_VARIANT 5
@@ -3041,7 +3043,9 @@ static int wcd937x_soc_codec_probe(struct snd_soc_component *component)
 	wcd937x->component = component;
 	snd_soc_component_init_regmap(component, wcd937x->regmap);
 
+#if IS_ENABLED(CONFIG_REGMAP_QTI_DEBUGFS)
 	devm_regmap_qti_debugfs_register(&wcd937x->tx_swr_dev->dev, wcd937x->regmap);
+#endif
 
 	variant = (snd_soc_component_read(
 			component, WCD937X_DIGITAL_EFUSE_REG_0) & 0x1E) >> 1;

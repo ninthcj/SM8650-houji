@@ -71,6 +71,7 @@ def define_target_variant_modules(target, variant, registry, modules, config_opt
             srcs = module_srcs,
             out = "{}.ko".format(module.name),
             deps = deps + registry.hdrs,
+            copts = ["-fstrict-flex-arrays=0"],
             local_defines = options.keys(),
             kernel_build = kernel_build_label,
         )

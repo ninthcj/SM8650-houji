@@ -899,16 +899,16 @@ int wlan_hdd_pld_set_thermal_mitigation(struct device *dev, unsigned long state,
 }
 
 #ifdef FEATURE_WPSS_THERMAL_MITIGATION
-inline void hdd_thermal_mitigation_register_wpps(struct hdd_context *hdd_ctx,
-						 struct device *dev)
+static inline void hdd_thermal_mitigation_register_wpps(struct hdd_context *hdd_ctx,
+							struct device *dev)
 {
 	if (hdd_ctx->multi_client_thermal_mitigation)
 		pld_thermal_register(dev, HDD_THERMAL_STATE_LIGHT,
 				     THERMAL_MONITOR_WPSS);
 }
 
-inline void hdd_thermal_mitigation_unregister_wpps(struct hdd_context *hdd_ctx,
-						   struct device *dev)
+static inline void hdd_thermal_mitigation_unregister_wpps(struct hdd_context *hdd_ctx,
+							  struct device *dev)
 {
 	if (hdd_ctx->multi_client_thermal_mitigation)
 		pld_thermal_unregister(dev, THERMAL_MONITOR_WPSS);

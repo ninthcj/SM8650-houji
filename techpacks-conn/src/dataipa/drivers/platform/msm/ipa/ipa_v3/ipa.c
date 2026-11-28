@@ -970,7 +970,7 @@ struct iommu_domain *ipa3_get_wlan_smmu_domain(void)
 	return ipa3_get_smmu_domain_by_type(IPA_SMMU_CB_WLAN);
 }
 
-struct iommu_domain *ipa3_get_rtp_smmu_domain(void)
+static struct iommu_domain *ipa3_get_rtp_smmu_domain(void)
 {
 	return ipa3_get_smmu_domain_by_type(IPA_SMMU_CB_RTP);
 }
@@ -991,7 +991,7 @@ struct iommu_domain *ipa3_get_eth1_smmu_domain(void)
 }
 
 
-struct iommu_domain *ipa3_get_11ad_smmu_domain(void)
+static struct iommu_domain *ipa3_get_11ad_smmu_domain(void)
 {
 	return ipa3_get_smmu_domain_by_type(IPA_SMMU_CB_11AD);
 }
@@ -4629,7 +4629,7 @@ send:
  * -ENOMEM: failed to allocate memory
  * -EPERM: failed to add the tables
  */
-int ipa3_setup_dflt_rt_tables(void)
+static int ipa3_setup_dflt_rt_tables(void)
 {
 	struct ipa_ioc_add_rt_rule *rt_rule;
 	struct ipa_rt_rule_add *rt_rule_entry;
@@ -6678,7 +6678,7 @@ static long compat_ipa3_nat_ipv6ct_alloc_table(unsigned long arg,
 	return retval;
 }
 
-long compat_ipa3_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+static long compat_ipa3_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	long retval = 0;
 	struct ipa3_ioc_nat_alloc_mem32 nat_mem32;
@@ -7465,7 +7465,7 @@ static void ipa3_handle_gsi_differ_irq(void)
  * ipa3_active_clks_status() - update the current msm bus clock vote
  * status
  */
-int ipa3_active_clks_status(void)
+static int ipa3_active_clks_status(void)
 {
 	return atomic_read(&ipa3_ctx->ipa_clk_vote);
 }
@@ -9661,8 +9661,16 @@ static inline void ipa3_enable_napi_netdev(void)
 
 static inline void ipa3_disable_napi_netdev(void)
 {
-	if (ipa3_ctx->lan_rx_napi_enable)
+	if (ipa3_ctx->lan_rx_napi_enable) {
 		netif_napi_del(&ipa3_ctx->napi_lan_rx);
+		ipa3_ctx->lan_rx_napi_enable = false;
+	}
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 13, 0))
+	if (ipa3_ctx->generic_ndev) {
+		free_netdev(ipa3_ctx->generic_ndev);
+		ipa3_ctx->generic_ndev = NULL;
+	}
+#endif
 }
 
 static u32 get_tx_wrapper_cache_size(u32 cache_size)
@@ -13384,6 +13392,8 @@ static void __exit ipa_module_exit(void)
 	if (running_emulation)
 		pci_unregister_driver(&ipa_pci_driver);
 	platform_driver_unregister(&ipa_plat_drv);
+	if (ipa3_ctx)
+		ipa3_disable_napi_netdev();
 	if(ipa3_ctx->hw_stats) {
 		kfree(ipa3_ctx->hw_stats);
 		ipa3_ctx->hw_stats = NULL;

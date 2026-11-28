@@ -15,6 +15,7 @@
 #include "cam_lrme_context.h"
 #include "cam_lrme_hw_mgr.h"
 #include "cam_lrme_hw_mgr_intf.h"
+#include "cam_lrme_dev.h"
 #include "camera_main.h"
 
 #define CAM_LRME_DEV_NAME "cam-lrme"

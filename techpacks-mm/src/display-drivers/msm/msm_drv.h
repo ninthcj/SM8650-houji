@@ -1154,6 +1154,7 @@ struct msm_drm_private {
 	 * to detect and reject faults from copy_from_user() for submit
 	 * ioctl.
 	 */
+	struct mutex struct_mutex;
 	struct task_struct *struct_mutex_task;
 
 	/* list of clients waiting for events */
@@ -1299,6 +1300,8 @@ int msm_gem_address_space_unregister_cb(
 void msm_gem_submit_free(struct msm_gem_submit *submit);
 int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 		struct drm_file *file);
+int msm_ioctl_rmfb2(struct drm_device *dev, void *data,
+		struct drm_file *file_priv);
 
 void msm_gem_shrinker_init(struct drm_device *dev);
 void msm_gem_shrinker_cleanup(struct drm_device *dev);
@@ -1377,7 +1380,8 @@ struct drm_framebuffer *msm_framebuffer_init(struct drm_device *dev,
 		const struct drm_mode_fb_cmd2 *mode_cmd,
 		struct drm_gem_object **bos);
 struct drm_framebuffer *msm_framebuffer_create(struct drm_device *dev,
-		struct drm_file *file, const struct drm_mode_fb_cmd2 *mode_cmd);
+		struct drm_file *file, const struct drm_format_info *info,
+		const struct drm_mode_fb_cmd2 *mode_cmd);
 int msm_framebuffer_set_cache_hint(struct drm_framebuffer *fb,
 		u32 flags, u32 rd_type, u32 wr_type);
 int msm_framebuffer_get_cache_hint(struct drm_framebuffer *fb,
@@ -1495,17 +1499,7 @@ static inline void __exit dsi_display_unregister(void)
 }
 #endif /* CONFIG_DRM_MSM_DSI */
 
-#if IS_ENABLED(CONFIG_HDCP_QSEECOM)
-void __init msm_hdcp_register(void);
-void __exit msm_hdcp_unregister(void);
-#else
-static inline void __init msm_hdcp_register(void)
-{
-}
-static inline void __exit msm_hdcp_unregister(void)
-{
-}
-#endif /* CONFIG_HDCP_QSEECOM */
+#include <linux/msm_hdcp.h>
 
 #if IS_ENABLED(CONFIG_DRM_MSM_DP)
 void __init dp_display_register(void);

@@ -332,7 +332,7 @@ static struct platform_driver tmecom_driver = {
 module_platform_driver(tmecom_driver);
 #else // IS_ENABLED(CONFIG_MSM_QMP)
 #warning CONFIG_MSM_QMP is not enabled so only a stub has been added.
-int stub_init(void)
+static int stub_init(void)
 {
 	pr_err("ERROR: CONFIG_MSM_QMP is not enabled so only a stub has been added.\n");
 	return 0;
@@ -346,7 +346,7 @@ int tmecom_process_request(const void *reqbuf, size_t reqsize, void *respbuf,
 EXPORT_SYMBOL_GPL(tmecom_process_request);
 #endif // IS_ENABLED(CONFIG_MSM_QMP)
 #else // IS_ENABLED(CONFIG_MSM_TMECOM_QMP)
-int stub_init(void)
+static int stub_init(void)
 {
 	panic("tmecom-intf_dlkm is stubbed and should not be initialized.\n");
 	return -EOPNOTSUPP;

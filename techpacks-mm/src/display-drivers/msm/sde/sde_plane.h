@@ -439,4 +439,5 @@ void sde_plane_dump_input_fence(struct drm_plane *plane);
  * Returns: true if the input sw fence is signaled, otherwise false.
  */
 bool sde_plane_is_sw_fence_signaled(struct drm_plane *plane);
+int sde_plane_danger_signal_ctrl(struct drm_plane *plane, bool enable);
 #endif /* _SDE_PLANE_H_ */

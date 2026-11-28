@@ -1186,7 +1186,7 @@ bool dp_tx_mlo_is_mcast_primary_be(struct dp_soc *soc,
  *
  * Return: tid value in mark metadata
  */
-uint8_t dp_sawf_config_be(struct dp_soc *soc, uint32_t *hal_tx_desc_cached,
+static uint8_t dp_sawf_config_be(struct dp_soc *soc, uint32_t *hal_tx_desc_cached,
 			  uint16_t *fw_metadata, struct dp_tx_desc_s *tx_desc,
 			  struct dp_tx_msdu_info_s *msdu_info)
 {
@@ -1235,7 +1235,7 @@ uint8_t dp_sawf_config_be(struct dp_soc *soc, uint32_t *hal_tx_desc_cached,
 #define SAWF_SERVICE_CLASS_MASK 0xff
 #define SAWF_MSDUQ_MASK 0x3f
 
-uint8_t dp_sawf_config_fast_send_be(struct dp_soc *soc,
+static uint8_t dp_sawf_config_fast_send_be(struct dp_soc *soc,
 				    uint32_t *hal_tx_desc_cached,
 				    struct dp_tx_desc_s *tx_desc)
 {

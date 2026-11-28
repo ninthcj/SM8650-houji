@@ -39,5 +39,7 @@ extern struct blocking_notifier_head charger_notifier;
 extern int charger_reg_notifier(struct notifier_block *nb);
 extern int charger_unreg_notifier(struct notifier_block *nb);
 extern int charger_notifier_call_chain(unsigned long event, int val);
+extern int pen_charge_state_notifier_register_client(struct notifier_block *nb);
+extern int pen_charge_state_notifier_unregister_client(struct notifier_block *nb);
 
 #endif /* __QTI_BATTERY_CHARGER_H */

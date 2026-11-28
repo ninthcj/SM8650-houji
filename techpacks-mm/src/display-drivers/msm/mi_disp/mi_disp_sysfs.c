@@ -14,6 +14,7 @@
 #include <linux/slab.h>
 
 #include "mi_disp_print.h"
+#include "mi_disp_sysfs.h"
 #include "mi_dsi_display.h"
 #include "mi_disp_feature.h"
 

@@ -1029,7 +1029,7 @@ int unregister_hboost_event_notifier(struct notifier_block *nb)
 }
 EXPORT_SYMBOL(unregister_hboost_event_notifier);
 
-int StringToHex(char *str, unsigned char *out, unsigned int *outlen)
+static int StringToHex(char *str, unsigned char *out, unsigned int *outlen)
 {
 	char *p = str;
 	char high = 0, low = 0;
@@ -2359,7 +2359,7 @@ static ssize_t usbinterface_show(const struct class *c, const struct class_attri
 }
 static CLASS_ATTR_RW(usbinterface);
 
-void mievent_upload(int miev_code, int para_cnt,...)
+static void mievent_upload(int miev_code, int para_cnt,...)
 {
 	#if IS_ENABLED(CONFIG_MIEV)
     int i = 0;
@@ -3189,7 +3189,7 @@ static int battery_chg_init_psy(struct battery_chg_dev *bcdev)
 	struct power_supply *psy;
 
 	psy_cfg.drv_data = bcdev;
-	psy_cfg.of_node = bcdev->dev->of_node;
+	psy_cfg.fwnode = of_fwnode_handle(bcdev->dev->of_node);
 
 	bcdev->psy_list[PSY_TYPE_BATTERY].psy =
 		devm_power_supply_register(bcdev->dev, &batt_psy_desc,

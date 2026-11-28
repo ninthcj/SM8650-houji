@@ -30,7 +30,7 @@
 #define GSI_TRE_RE_XFER 2
 #define TRE_SIZE 2048
 
-MODULE_IMPORT_NS(DMA_BUF);
+MODULE_IMPORT_NS("DMA_BUF");
 
 enum ipa3_cpu_2_hw_rtp_commands {
 	IPA_CPU_2_HW_CMD_RTP_TUPLE_INFO             =
@@ -344,7 +344,7 @@ int ipa3_uc_send_add_bitstream_buffers_cmd(struct bitstream_buffers_to_uc *data)
 	return result;
 }
 
-int ipa3_uc_send_temp_buffers_info_cmd(struct uc_temp_buffer_info *data)
+static int ipa3_uc_send_temp_buffers_info_cmd(struct uc_temp_buffer_info *data)
 {
 	int result = 0;
 	struct ipa_mem_buffer cmd;
@@ -427,7 +427,7 @@ int ipa3_alloc_temp_buffs_to_uc(unsigned int size, unsigned int no_of_buffs)
 	return ipa3_uc_send_temp_buffers_info_cmd(&tb_info);
 }
 
-int ipa3_uc_send_RTPPipeSetup_cmd(struct rtp_pipe_setup_cmd_data *rtp_cmd_data)
+static int ipa3_uc_send_RTPPipeSetup_cmd(struct rtp_pipe_setup_cmd_data *rtp_cmd_data)
 {
 	int result = 0;
 	struct ipa_mem_buffer cmd;
@@ -633,7 +633,7 @@ int ipa3_allocate_uc_pipes_er_tr_send_to_uc(void)
 	return res;
 }
 
-int ipa3_insert_dma_info(struct dma_address_map_table *map, uint32_t stream_id)
+static int ipa3_insert_dma_info(struct dma_address_map_table *map, uint32_t stream_id)
 {
 	struct list_node *new_node = kzalloc(sizeof(struct list_node), GFP_KERNEL);
 
@@ -654,7 +654,7 @@ int ipa3_insert_dma_info(struct dma_address_map_table *map, uint32_t stream_id)
 	return 0;
 }
 
-struct dma_address_map_table *ipa3_search_dma_info(struct dma_buf *dma_buf, uint32_t stream_id)
+static struct dma_address_map_table *ipa3_search_dma_info(struct dma_buf *dma_buf, uint32_t stream_id)
 {
 	struct list_head *ptr = NULL;
 	struct list_node *entry = NULL;
@@ -676,7 +676,7 @@ struct dma_address_map_table *ipa3_search_dma_info(struct dma_buf *dma_buf, uint
 	return NULL;
 }
 
-struct dma_address_map_table *ipa3_delete_dma_info(struct dma_buf *dma_buf, int stream_id)
+static struct dma_address_map_table *ipa3_delete_dma_info(struct dma_buf *dma_buf, int stream_id)
 {
 	struct list_head *ptr = NULL;
 	struct list_node *entry = NULL;
@@ -707,7 +707,7 @@ struct dma_address_map_table *ipa3_delete_dma_info(struct dma_buf *dma_buf, int 
 	return table_entry;
 }
 
-int ipa3_smmu_map_buff(uint64_t bitstream_buffer_fd,
+static int ipa3_smmu_map_buff(uint64_t bitstream_buffer_fd,
 		uint64_t meta_buff_fd, int stream_id)
 {
 	int err = 0;
@@ -795,7 +795,7 @@ map_table_free:
 	return err;
 }
 
-int ipa3_smmu_unmap_buff(uint64_t bitstream_buffer_fd, uint64_t meta_buff_fd, int stream_id)
+static int ipa3_smmu_unmap_buff(uint64_t bitstream_buffer_fd, uint64_t meta_buff_fd, int stream_id)
 {
 	struct dma_buf *dbuff = NULL;
 	struct dma_address_map_table *map_table = NULL;
@@ -996,7 +996,7 @@ int ipa3_send_bitstream_buff_info(struct bitstream_buffers *data)
 	return ipa3_uc_send_add_bitstream_buffers_cmd(&tmp);
 }
 
-int ipa3_uc_send_hfi_cmd(struct hfi_queue_info *data)
+static int ipa3_uc_send_hfi_cmd(struct hfi_queue_info *data)
 {
 	int result = 0;
 	struct ipa_mem_buffer cmd;

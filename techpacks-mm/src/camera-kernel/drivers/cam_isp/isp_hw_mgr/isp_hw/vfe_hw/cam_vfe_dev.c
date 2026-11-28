@@ -11,6 +11,7 @@
 #include <linux/component.h>
 
 #include "cam_vfe_core.h"
+#include "cam_vfe_dev.h"
 #include "cam_vfe_soc.h"
 #include "cam_debug_util.h"
 #include <dt-bindings/msm-camera.h>

@@ -2554,7 +2554,7 @@ static struct v4l2_subscribed_event_ops cam_sync_v4l2_ops = {
 	.merge = cam_sync_event_queue_notify_error,
 };
 
-int cam_sync_subscribe_event(struct v4l2_fh *fh,
+static int cam_sync_subscribe_event(struct v4l2_fh *fh,
 	const struct v4l2_event_subscription *sub)
 {
 	if (!((sub->type == CAM_SYNC_V4L_EVENT) ||
@@ -2569,7 +2569,7 @@ int cam_sync_subscribe_event(struct v4l2_fh *fh,
 		&cam_sync_v4l2_ops);
 }
 
-int cam_sync_unsubscribe_event(struct v4l2_fh *fh,
+static int cam_sync_unsubscribe_event(struct v4l2_fh *fh,
 	const struct v4l2_event_subscription *sub)
 {
 	if (!((sub->type == CAM_SYNC_V4L_EVENT) ||
@@ -2687,7 +2687,7 @@ end:
 }
 
 #if IS_REACHABLE(CONFIG_MSM_GLOBAL_SYNX)
-int cam_synx_sync_signal(int32_t sync_obj, uint32_t synx_status)
+static int cam_synx_sync_signal(int32_t sync_obj, uint32_t synx_status)
 {
 	int rc;
 	uint32_t sync_status = synx_status;
@@ -2722,13 +2722,13 @@ int cam_synx_sync_signal(int32_t sync_obj, uint32_t synx_status)
 	return rc;
 }
 
-int cam_synx_sync_register_callback(sync_callback cb_func,
+static int cam_synx_sync_register_callback(sync_callback cb_func,
 	void *userdata, int32_t sync_obj)
 {
 	return cam_sync_register_callback(cb_func, userdata, sync_obj);
 }
 
-int cam_synx_sync_deregister_callback(sync_callback cb_func,
+static int cam_synx_sync_deregister_callback(sync_callback cb_func,
 	void *userdata, int32_t sync_obj)
 {
 	return cam_sync_deregister_callback(cb_func, userdata, sync_obj);

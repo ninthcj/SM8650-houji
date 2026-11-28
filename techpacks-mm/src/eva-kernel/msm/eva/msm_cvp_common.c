@@ -310,7 +310,7 @@ static void handle_sys_release_res_done(
 			SYS_MSG_INDEX(HAL_SYS_RELEASE_RESOURCE_DONE)]);
 }
 
-void change_cvp_inst_state(struct msm_cvp_inst *inst, enum instance_state state)
+static void change_cvp_inst_state(struct msm_cvp_inst *inst, enum instance_state state)
 {
 	if (!inst) {
 		dprintk(CVP_ERR, "Invalid parameter %s\n", __func__);

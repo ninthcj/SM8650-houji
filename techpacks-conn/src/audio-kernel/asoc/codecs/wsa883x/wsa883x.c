@@ -32,7 +32,9 @@
 #include "wsa883x.h"
 #include "internal.h"
 #include "asoc/bolero-slave-internal.h"
+#if IS_ENABLED(CONFIG_REGMAP_QTI_DEBUGFS)
 #include <linux/qti-regmap-debugfs.h>
+#endif
 #include <linux/proc_fs.h>
 
 #define REGDUMP_PRINT_LEN 8
@@ -1840,7 +1842,9 @@ static int wsa883x_swr_probe(struct swr_device *pdev)
 		goto dev_err;
 	}
 
+#if IS_ENABLED(CONFIG_REGMAP_QTI_DEBUGFS)
 	devm_regmap_qti_debugfs_register(&pdev->dev, wsa883x->regmap);
+#endif
 
 	/*
 	 * gracefully handle proc creation

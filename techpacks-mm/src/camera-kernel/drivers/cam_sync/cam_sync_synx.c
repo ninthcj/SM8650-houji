@@ -753,7 +753,7 @@ err:
 	return rc;
 }
 
-int __cam_synx_init_session(void)
+static int __cam_synx_init_session(void)
 {
 	struct synx_queue_desc queue_desc;
 	struct synx_initialization_params params;

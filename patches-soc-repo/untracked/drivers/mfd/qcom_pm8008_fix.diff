@@ -1,0 +1,48 @@
+--- a/drivers/mfd/qcom-pm8008.c
++++ b/drivers/mfd/qcom-pm8008.c
+@@ -183,22 +183,13 @@
+ 	MFD_CELL_NAME("pm8008-gpio"),
+ };
+ 
+-static void devm_irq_domain_fwnode_release(void *data)
+-{
+-	struct fwnode_handle *fwnode = data;
+-
+-	irq_domain_free_fwnode(fwnode);
+-}
+-
+ static int pm8008_probe(struct i2c_client *client)
+ {
+ 	struct regmap_irq_chip_data *irq_data;
+ 	struct device *dev = &client->dev;
+ 	struct regmap *regmap, *regmap2;
+-	struct fwnode_handle *fwnode;
+ 	struct i2c_client *dummy;
+ 	struct gpio_desc *reset;
+-	char *name;
+ 	int ret;
+ 
+ 	dummy = devm_i2c_new_dummy_device(dev, client->adapter, client->addr + 1);
+@@ -231,21 +222,7 @@
+ 	 */
+ 	usleep_range(1000, 2000);
+ 
+-	name = devm_kasprintf(dev, GFP_KERNEL, "%pOF-internal", dev->of_node);
+-	if (!name)
+-		return -ENOMEM;
+-
+-	name = strreplace(name, '/', ':');
+-
+-	fwnode = irq_domain_alloc_named_fwnode(name);
+-	if (!fwnode)
+-		return -ENOMEM;
+-
+-	ret = devm_add_action_or_reset(dev, devm_irq_domain_fwnode_release, fwnode);
+-	if (ret)
+-		return ret;
+-
+-	ret = devm_regmap_add_irq_chip_fwnode(dev, fwnode, regmap, client->irq,
++	ret = devm_regmap_add_irq_chip(dev, regmap, client->irq,
+ 				IRQF_SHARED, 0, &pm8008_irq_chip, &irq_data);
+ 	if (ret) {
+ 		dev_err(dev, "failed to add IRQ chip: %d\n", ret);

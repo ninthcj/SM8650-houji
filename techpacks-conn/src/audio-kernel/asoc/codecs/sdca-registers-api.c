@@ -270,4 +270,5 @@ void sdca_devices_debugfs_dentry_remove(struct sdca_debugfs_info *debugfs_info)
 EXPORT_SYMBOL_GPL(sdca_devices_debugfs_dentry_remove);
 
 MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("SDCA Registers Debugfs API Driver");
 

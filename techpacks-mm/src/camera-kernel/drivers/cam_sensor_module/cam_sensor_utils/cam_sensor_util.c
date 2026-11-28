@@ -1339,7 +1339,7 @@ int cam_sensor_util_request_gpio_table(
 	uint8_t size = 0;
 	struct cam_soc_gpio_data *gpio_conf =
 			soc_info->gpio_data;
-	struct gpio *gpio_tbl = NULL;
+	struct cam_gpio *gpio_tbl = NULL;
 
 	if (!gpio_conf) {
 		CAM_DBG(CAM_SENSOR_UTIL, "No GPIO data");
@@ -1395,7 +1395,7 @@ bool cam_sensor_util_check_gpio_is_shared(
 	uint8_t size = 0;
 	struct cam_soc_gpio_data *gpio_conf =
 			soc_info->gpio_data;
-	struct gpio *gpio_tbl = NULL;
+	struct cam_gpio *gpio_tbl = NULL;
 
 	if (!gpio_conf) {
 		CAM_DBG(CAM_SENSOR_UTIL, "No GPIO data");
@@ -2084,7 +2084,7 @@ int cam_sensor_bob_pwm_mode_switch(struct cam_hw_soc_info *soc_info,
 	return rc;
 }
 
-int msm_cam_sensor_handle_reg_gpio(int seq_type,
+static int msm_cam_sensor_handle_reg_gpio(int seq_type,
 	struct msm_camera_gpio_num_info *gpio_num_info, int val)
 {
 	int gpio_offset = -1;

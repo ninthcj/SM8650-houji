@@ -336,7 +336,7 @@ void dp_rx_mon_print_tag_buf(uint8_t *buf, uint16_t room)
 }
 #endif
 
-void
+static void
 dp_rx_mon_shift_pf_tag_in_headroom(qdf_nbuf_t nbuf, struct dp_soc *soc,
 				   struct hal_rx_ppdu_info *ppdu_info)
 {

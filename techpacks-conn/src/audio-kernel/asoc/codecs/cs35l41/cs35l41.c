@@ -2305,11 +2305,11 @@ static int cs35l41_set_dai_fmt(struct snd_soc_dai *codec_dai, unsigned int fmt)
 
 	dev_info(cs35l41->dev, "%s: fmt = 0x%x\n", __func__, fmt);
 
-	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
-	case SND_SOC_DAIFMT_CBM_CFM:
+	switch (fmt & SND_SOC_DAIFMT_CLOCK_PROVIDER_MASK) {
+	case SND_SOC_DAIFMT_CBP_CFP:
 		clock_mode = 1;
 		break;
-	case SND_SOC_DAIFMT_CBS_CFS:
+	case SND_SOC_DAIFMT_CBC_CFC:
 		clock_mode = 0;
 		break;
 	default:
@@ -2508,7 +2508,7 @@ static const struct snd_pcm_hw_constraint_list cs35l41_constraints = {
 static int cs35l41_pcm_startup(struct snd_pcm_substream *substream,
 			       struct snd_soc_dai *dai)
 {
-	cs35l41_set_dai_fmt(dai, SND_SOC_DAIFMT_CBS_CFS|SND_SOC_DAIFMT_DSP_A);
+	cs35l41_set_dai_fmt(dai, SND_SOC_DAIFMT_CBC_CFC | SND_SOC_DAIFMT_DSP_A);
 	if (substream->runtime)
 		return snd_pcm_hw_constraint_list(substream->runtime, 0,
 				SNDRV_PCM_HW_PARAM_RATE, &cs35l41_constraints);

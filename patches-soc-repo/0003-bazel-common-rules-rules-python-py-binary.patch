@@ -1,0 +1,61 @@
+diff --git a/dist/dist.bzl b/dist/dist.bzl
+index 7ed8ca4..992025d 100644
+--- a/dist/dist.bzl
++++ b/dist/dist.bzl
+@@ -3,6 +3,7 @@ the standard Bazel output user root.
+ """
+ 
+ load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
++load("@rules_python//python:defs.bzl", "py_binary")
+ load("//build/bazel_common_rules/exec/impl:embedded_exec.bzl", "embedded_exec")
+ 
+ def _label_list_to_manifest(lst):
+@@ -213,47 +214,16 @@ def copy_to_dist_dir(
+     # The dist py_binary tool must be colocated in the same package as the
+     # dist_manifest so that the runfiles directory is the same, and that the
+     # dist_manifest is in the data runfiles of the dist tool.
+-    native.py_binary(
++    py_binary(
+         name = name + "_internal",
+         main = name + "_dist.py",
+         srcs = [name + "_dist.py"],
+-        python_version = "PY3",
+         visibility = ["//visibility:public"],
+         data = [name + "_dist_manifest"],
+         testonly = testonly,
+         args = default_args,
+     )
+ 
+-    # buildifier: disable=print
+-    print("""
+-WARNING: copy_to_dist_dir() is deprecated. Use pkg_install() instead.
+-
+-Suggested edit:
+-
+-load("@rules_pkg//pkg:install.bzl", "pkg_install")
+-load("@rules_pkg//pkg:mappings.bzl", "pkg_files", "strip_prefix")
+-pkg_files(
+-    name = {name_files},
+-    srcs = {data},
+-    strip_prefix = {strip_prefix},
+-    visibility = ["//visibility:private"],
+-)
+-pkg_install(
+-    name = {name},
+-    srcs = [{colon_name_files}],
+-    destdir = {dist_dir},
+-){unhandled_attrs}{unsupported_attrs}""".format(
+-        name = repr(name),
+-        name_files = repr(name + "_files"),
+-        colon_name_files = repr(":" + name + "_files"),
+-        dist_dir = repr(dist_dir),
+-        strip_prefix = "strip_prefix.files_only()" if flat else "None",
+-        data = repr(data),
+-        unhandled_attrs = "" if not unhandled_attrs else "\nThe following attributes are not converted; read the API reference of rules_pkg " +
+-                                                         "for an alternative: {}".format(repr(unhandled_attrs)),
+-        unsupported_attrs = "" if not unsupported_attrs else "\nThe following attributes may not be supported by rules_pkg: {}".format(repr(unsupported_attrs)),
+-    ))
+-
+     embedded_exec(
+         name = name,
+         actual = name + "_internal",

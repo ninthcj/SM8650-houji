@@ -86,7 +86,7 @@ struct disp_log_read {
 
 struct disp_log *g_disp_log = NULL;
 
-bool mi_disp_log_is_initialized(void)
+static bool mi_disp_log_is_initialized(void)
 {
 	return g_disp_log ? g_disp_log->initialized : false;
 }
@@ -350,7 +350,7 @@ exit:
 }
 
 
-int mi_disp_log_debugfs_open(struct inode *inode, struct file *file)
+static int mi_disp_log_debugfs_open(struct inode *inode, struct file *file)
 {
 	struct disp_log_read *read_ptr = NULL;
 
@@ -449,7 +449,7 @@ out:
 	return ret;
 }
 
-int mi_disp_log_open(struct inode *inode, struct file *file)
+static int mi_disp_log_open(struct inode *inode, struct file *file)
 {
 	struct disp_log_read *read_ptr = NULL;
 
@@ -466,7 +466,7 @@ int mi_disp_log_open(struct inode *inode, struct file *file)
 	g_disp_log->read_ptr = read_ptr;
 	return 0;
 }
-__poll_t mi_disp_log_poll(struct file *filp, struct poll_table_struct *wait)
+static __poll_t mi_disp_log_poll(struct file *filp, struct poll_table_struct *wait)
 {
 	struct disp_log* disp_log= filp->private_data;
 	__poll_t mask = 0;
@@ -475,7 +475,7 @@ __poll_t mi_disp_log_poll(struct file *filp, struct poll_table_struct *wait)
 		mask |= EPOLLIN | EPOLLRDNORM;
 	return mask;
 }
- int mi_disp_log_release(struct inode *inode, struct file *file)
+static int mi_disp_log_release(struct inode *inode, struct file *file)
 {
 	struct disp_log* disp_log= file->private_data;
 	if (!disp_log)

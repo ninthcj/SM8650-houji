@@ -189,7 +189,7 @@ u64 rmnet_shs_wq_get_max_allowed_pps(u16 cpu)
 	return rmnet_shs_cpu_rx_max_pps_thresh[cpu];
 }
 
-inline int rmnet_shs_is_lpwr_cpu(u16 cpu)
+int rmnet_shs_is_lpwr_cpu(u16 cpu)
 {
 	return !((1 << cpu) & PERF_MASK);
 }

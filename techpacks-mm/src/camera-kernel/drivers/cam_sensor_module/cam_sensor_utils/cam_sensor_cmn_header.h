@@ -354,12 +354,14 @@ enum msm_camera_vreg_name_t {
 	CAM_VREG_MAX,
 };
 
+struct cam_gpio;
+
 struct msm_camera_gpio_conf {
 	void *cam_gpiomux_conf_tbl;
 	uint8_t cam_gpiomux_conf_tbl_size;
-	struct gpio *cam_gpio_common_tbl;
+	struct cam_gpio *cam_gpio_common_tbl;
 	uint8_t cam_gpio_common_tbl_size;
-	struct gpio *cam_gpio_req_tbl;
+	struct cam_gpio *cam_gpio_req_tbl;
 	uint8_t cam_gpio_req_tbl_size;
 	uint32_t gpio_no_mux;
 	uint32_t *camera_off_table;

@@ -5,6 +5,7 @@
  */
 
 #include <linux/module.h>
+#include "cam_vfe.h"
 #include "cam_vfe170.h"
 #include "cam_vfe170_150.h"
 #include "cam_vfe175.h"

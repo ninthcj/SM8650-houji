@@ -32,7 +32,9 @@
 #include "wsa884x.h"
 #include "internal.h"
 #include "asoc/bolero-slave-internal.h"
+#if IS_ENABLED(CONFIG_REGMAP_QTI_DEBUGFS)
 #include <linux/qti-regmap-debugfs.h>
+#endif
 #include <linux/proc_fs.h>
 
 #define REGDUMP_PRINT_LEN 8
@@ -2183,7 +2185,9 @@ static int wsa884x_swr_probe(struct swr_device *pdev)
 		goto dev_err;
 	}
 
+#if IS_ENABLED(CONFIG_REGMAP_QTI_DEBUGFS)
 	devm_regmap_qti_debugfs_register(&pdev->dev, wsa884x->regmap);
+#endif
 
 	proc_entry_name = devm_kasprintf(&pdev->dev, GFP_KERNEL, "wsa884x_reginfo_%d", devnum);
 	if (proc_entry_name) {

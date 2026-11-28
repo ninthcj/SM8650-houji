@@ -23,6 +23,7 @@
 #include <linux/soc/qcom/qmi.h>
 #include <linux/remoteproc.h>
 #include <linux/remoteproc/qcom_rproc.h>
+#include <soc/qcom/system_health_monitor.h>
 
 #include "system_health_monitor_v01.h"
 

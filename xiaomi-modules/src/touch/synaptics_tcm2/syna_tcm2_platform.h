@@ -93,6 +93,8 @@ enum power_supply {
  *         hardware operations
  */
 
+struct gpio_desc;
+
 /* The hardware data especially for bus transferred */
 struct syna_hw_bus_data {
 	unsigned char type;
@@ -110,14 +112,14 @@ struct syna_hw_bus_data {
 	/* mutex to protect the i/o, if needed */
 	syna_pal_mutex_t io_mutex;
 	/* parameters for io switch, if needed */
-	int switch_gpio;
+	struct gpio_desc *switch_gpiod;
 	int switch_state;
 };
 
 /* The hardware data especially for ATTN signal */
 struct syna_hw_attn_data {
 	/* parameters */
-	int irq_gpio;
+	struct gpio_desc *irq_gpiod;
 	int irq_on_state;
 	unsigned long irq_flags;
 	int irq_id;
@@ -129,7 +131,7 @@ struct syna_hw_attn_data {
 /* The hardware data especially for RST_N pin */
 struct syna_hw_rst_data {
 	/* parameters */
-	int reset_gpio;
+	struct gpio_desc *reset_gpiod;
 	int reset_on_state;
 	unsigned int reset_delay_ms;
 	unsigned int reset_active_ms;
@@ -139,8 +141,8 @@ struct syna_hw_rst_data {
 struct syna_hw_pwr_data {
 	int psu;
 	/* parameters */
-	int vdd_gpio;
-	int avdd_gpio;
+	struct gpio_desc *vdd_gpiod;
+	struct gpio_desc *avdd_gpiod;
 	int power_on_state;
 	unsigned int power_delay_ms;
 

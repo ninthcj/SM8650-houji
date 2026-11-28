@@ -2140,7 +2140,7 @@ static int aqt_int_dem_inp_mux_put(struct snd_kcontrol *kcontrol,
 				     struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dapm_widget *widget =
-		snd_soc_dapm_kcontrol_widget(kcontrol);
+		snd_soc_dapm_kcontrol_to_widget(kcontrol);
 	struct snd_soc_component *component =
 				snd_soc_dapm_to_component(widget->dapm);
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
